@@ -5,6 +5,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "EngineUtils.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMobEnemy::AMobEnemy()
@@ -39,15 +40,46 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	}
 
 	const FVector MyLoc = GetActorLocation();
-	FVector ToPlayer = Player->GetActorLocation() - MyLoc;
-	ToPlayer.Z = 0.f; // move on the player's plane
 
-	if (ToPlayer.SizeSquared() > 1.f)
+	// Chase: head straight for the player (on their plane).
+	FVector ToPlayer = Player->GetActorLocation() - MyLoc;
+	ToPlayer.Z = 0.f;
+	const FVector ChaseDir = ToPlayer.GetSafeNormal();
+
+	// Separation: push away from nearby mobs so they spread instead of stacking.
+	FVector Separation = FVector::ZeroVector;
+	const float SepRadiusSq = SeparationRadius * SeparationRadius;
+	for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
 	{
-		const FVector Dir = ToPlayer.GetSafeNormal();
-		// Direct move — no controller/movement-component needed. Slides over
-		// terrain toward the player like a classic top-down survivor mob.
-		SetActorLocation(MyLoc + Dir * MoveSpeed * DeltaSeconds, /*bSweep=*/false);
-		SetActorRotation(Dir.Rotation());
+		AMobEnemy* Other = *It;
+		if (Other == this)
+		{
+			continue;
+		}
+
+		FVector Away = MyLoc - Other->GetActorLocation();
+		Away.Z = 0.f;
+		const float DistSq = Away.SizeSquared();
+		if (DistSq > KINDA_SMALL_NUMBER && DistSq < SepRadiusSq)
+		{
+			// Closer neighbours push harder.
+			const float Dist = FMath::Sqrt(DistSq);
+			Separation += (Away / Dist) * (1.f - Dist / SeparationRadius);
+		}
+	}
+
+	FVector Desired = ChaseDir + Separation * SeparationWeight;
+	Desired.Z = 0.f;
+
+	if (Desired.SizeSquared() > KINDA_SMALL_NUMBER)
+	{
+		const FVector MoveDir = Desired.GetSafeNormal();
+		SetActorLocation(MyLoc + MoveDir * MoveSpeed * DeltaSeconds, /*bSweep=*/false);
+	}
+
+	// Always face the player regardless of the separation nudge.
+	if (!ChaseDir.IsNearlyZero())
+	{
+		SetActorRotation(ChaseDir.Rotation());
 	}
 }

@@ -29,4 +29,12 @@ protected:
 	// Slower than the player (600) so the parasite can be kited.
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float MoveSpeed = 250.f;
+
+	// Mobs within this distance push each other apart so they don't stack.
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float SeparationRadius = 110.f;
+
+	// How strongly separation competes with the chase direction.
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float SeparationWeight = 1.5f;
 };
