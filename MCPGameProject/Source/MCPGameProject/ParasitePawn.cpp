@@ -11,6 +11,8 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
+#include "DrawDebugHelpers.h"
+#include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 
 #include "EnhancedInputComponent.h"
@@ -21,7 +23,7 @@
 
 AParasitePawn::AParasitePawn()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	// Collision / root
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComp"));
@@ -111,6 +113,23 @@ void AParasitePawn::BeginPlay()
 		{
 			Subsystem->AddMappingContext(InputMapping, 0);
 		}
+	}
+}
+
+void AParasitePawn::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	// Possession-range indicator: a flat red ring around the parasite.
+	DrawDebugCircle(GetWorld(), GetActorLocation(), PossessRange, 48, FColor::Red,
+		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
+		/*YAxis=*/FVector(1.f, 0.f, 0.f), /*ZAxis=*/FVector(0.f, 1.f, 0.f), /*bDrawAxis=*/false);
+
+	if (bIsPossessing && GEngine)
+	{
+		const float Remaining = GetWorldTimerManager().GetTimerRemaining(PossessTimer);
+		GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Yellow,
+			FString::Printf(TEXT("Host: %.1fs left"), FMath::Max(0.f, Remaining)));
 	}
 }
 
@@ -236,9 +255,30 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	SetSelectedTarget(nullptr);
 	Host->Destroy();
 
+	// Start (or restart) the countdown that forces us back out.
+	GetWorldTimerManager().SetTimer(PossessTimer, this, &AParasitePawn::EjectFromHost, PossessDuration, false);
+
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(2, 2.0f, FColor::Green, TEXT("Possessed a host!"));
+	}
+}
+
+void AParasitePawn::EjectFromHost()
+{
+	GetWorldTimerManager().ClearTimer(PossessTimer);
+	bIsPossessing = false;
+
+	// Burst back out as the bare parasite.
+	if (ParasiteMesh)
+	{
+		BodyMesh->SetStaticMesh(ParasiteMesh);
+		BodyMesh->SetRelativeScale3D(FVector(0.8f));
+	}
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(2, 2.0f, FColor::Red, TEXT("Ejected! Find a new host"));
 	}
 }
 
