@@ -13,11 +13,13 @@ class UCameraComponent;
 class UFloatingPawnMovement;
 class UInputAction;
 class UInputMappingContext;
+class UStaticMesh;
+class AMobEnemy;
 struct FInputActionValue;
 
 /**
- * The player: a lone parasite. Weak on its own; the plan is to possess enemy
- * mobs as hosts. This class covers step 1 — top-down movement + camera.
+ * The player: a lone parasite. Weak on its own — press Q to pick a nearby mob,
+ * Space to possess it and wear it as a host.
  */
 UCLASS()
 class MCPGAMEPROJECT_API AParasitePawn : public APawn
@@ -64,8 +66,39 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* MoveRightAction;
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* SelectHostAction; // Q
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* PossessAction; // Space
+
+	// --- Possession ---
+	// How far the parasite can reach to select/possess a host.
+	UPROPERTY(EditAnywhere, Category = "Possession")
+	float PossessRange = 450.f;
+
+	// Currently highlighted candidate (raw UPROPERTY -> auto-nulled if it dies).
+	UPROPERTY()
+	AMobEnemy* SelectedTarget;
+
+	// True once we're wearing a host body.
+	UPROPERTY()
+	bool bIsPossessing = false;
+
+	// Form meshes (parasite sphere <-> host cube), resolved in the constructor.
+	UPROPERTY()
+	UStaticMesh* ParasiteMesh;
+
+	UPROPERTY()
+	UStaticMesh* HostMesh;
+
 	void MoveForward(const FInputActionValue& Value);
 	void MoveBackward(const FInputActionValue& Value);
 	void MoveLeft(const FInputActionValue& Value);
 	void MoveRight(const FInputActionValue& Value);
+
+	void SelectNextHost(const FInputActionValue& Value);
+	void PerformPossess(const FInputActionValue& Value);
+
+	void SetSelectedTarget(AMobEnemy* NewTarget);
 };

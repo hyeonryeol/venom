@@ -1,4 +1,4 @@
-// venom — Basic enemy mob. Chases the player. Future host for possession.
+// venom — Basic enemy mob (the goblin). Chases the player; a possession host.
 
 #pragma once
 
@@ -19,6 +19,9 @@ public:
 
 	virtual void Tick(float DeltaSeconds) override;
 
+	/** Visual cue while this mob is the parasite's current possession target. */
+	void SetHighlighted(bool bInHighlighted);
+
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Mob")
 	USphereComponent* CollisionComp;
@@ -37,4 +40,7 @@ protected:
 	// How strongly separation competes with the chase direction.
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float SeparationWeight = 1.5f;
+
+	static constexpr float NormalScale = 0.9f;
+	static constexpr float HighlightScale = 1.3f;
 };

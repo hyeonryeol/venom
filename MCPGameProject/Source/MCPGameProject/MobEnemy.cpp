@@ -21,12 +21,17 @@ AMobEnemy::AMobEnemy()
 	BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
 	BodyMesh->SetupAttachment(RootComponent);
 	BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	BodyMesh->SetRelativeScale3D(FVector(0.9f));
+	BodyMesh->SetRelativeScale3D(FVector(NormalScale));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	if (CubeFinder.Succeeded())
 	{
 		BodyMesh->SetStaticMesh(CubeFinder.Object);
 	}
+}
+
+void AMobEnemy::SetHighlighted(bool bInHighlighted)
+{
+	BodyMesh->SetRelativeScale3D(FVector(bInHighlighted ? HighlightScale : NormalScale));
 }
 
 void AMobEnemy::Tick(float DeltaSeconds)

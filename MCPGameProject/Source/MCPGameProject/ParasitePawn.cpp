@@ -1,6 +1,7 @@
 // venom — Parasite player pawn (top-down survivor)
 
 #include "ParasitePawn.h"
+#include "MobEnemy.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -8,6 +9,8 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/Engine.h"
+#include "EngineUtils.h"
 #include "UObject/ConstructorHelpers.h"
 
 #include "EnhancedInputComponent.h"
@@ -26,15 +29,25 @@ AParasitePawn::AParasitePawn()
 	CollisionComp->SetCollisionProfileName(TEXT("Pawn"));
 	RootComponent = CollisionComp;
 
-	// Visible body (engine basic sphere, ~100u -> scale to match collision)
+	// Visible body — parasite form by default.
 	BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
 	BodyMesh->SetupAttachment(RootComponent);
 	BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	BodyMesh->SetRelativeScale3D(FVector(0.8f));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMeshFinder(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
-	if (SphereMeshFinder.Succeeded())
+
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereFinder(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+	if (SphereFinder.Succeeded())
 	{
-		BodyMesh->SetStaticMesh(SphereMeshFinder.Object);
+		ParasiteMesh = SphereFinder.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (CubeFinder.Succeeded())
+	{
+		HostMesh = CubeFinder.Object;
+	}
+	if (ParasiteMesh)
+	{
+		BodyMesh->SetStaticMesh(ParasiteMesh);
 	}
 
 	// Top-down camera boom
@@ -52,14 +65,13 @@ AParasitePawn::AParasitePawn()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 
-	// Movement (consumes AddMovementInput)
+	// Movement
 	Movement = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("Movement"));
 	Movement->MaxSpeed = 600.f;
 	Movement->Acceleration = 4000.f;
 	Movement->Deceleration = 4000.f;
 
 	// Enhanced Input, built in code so no .uasset is required.
-	// Four 1D axis actions (one key each) avoid needing negate/swizzle modifiers.
 	InputMapping = CreateDefaultSubobject<UInputMappingContext>(TEXT("InputMapping"));
 
 	MoveForwardAction = CreateDefaultSubobject<UInputAction>(TEXT("MoveForwardAction"));
@@ -71,12 +83,18 @@ AParasitePawn::AParasitePawn()
 	MoveRightAction = CreateDefaultSubobject<UInputAction>(TEXT("MoveRightAction"));
 	MoveRightAction->ValueType = EInputActionValueType::Axis1D;
 
+	SelectHostAction = CreateDefaultSubobject<UInputAction>(TEXT("SelectHostAction"));
+	SelectHostAction->ValueType = EInputActionValueType::Boolean;
+	PossessAction = CreateDefaultSubobject<UInputAction>(TEXT("PossessAction"));
+	PossessAction->ValueType = EInputActionValueType::Boolean;
+
 	InputMapping->MapKey(MoveForwardAction, EKeys::W);
 	InputMapping->MapKey(MoveBackwardAction, EKeys::S);
 	InputMapping->MapKey(MoveLeftAction, EKeys::A);
 	InputMapping->MapKey(MoveRightAction, EKeys::D);
+	InputMapping->MapKey(SelectHostAction, EKeys::Q);
+	InputMapping->MapKey(PossessAction, EKeys::SpaceBar);
 
-	// Parasite doesn't rotate with the camera/controller.
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
@@ -106,6 +124,10 @@ void AParasitePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		EIC->BindAction(MoveBackwardAction, ETriggerEvent::Triggered, this, &AParasitePawn::MoveBackward);
 		EIC->BindAction(MoveLeftAction, ETriggerEvent::Triggered, this, &AParasitePawn::MoveLeft);
 		EIC->BindAction(MoveRightAction, ETriggerEvent::Triggered, this, &AParasitePawn::MoveRight);
+
+		// Fire once per press (Started), not every frame.
+		EIC->BindAction(SelectHostAction, ETriggerEvent::Started, this, &AParasitePawn::SelectNextHost);
+		EIC->BindAction(PossessAction, ETriggerEvent::Started, this, &AParasitePawn::PerformPossess);
 	}
 }
 
@@ -127,4 +149,112 @@ void AParasitePawn::MoveLeft(const FInputActionValue& Value)
 void AParasitePawn::MoveRight(const FInputActionValue& Value)
 {
 	AddMovementInput(FVector::RightVector, Value.Get<float>());
+}
+
+void AParasitePawn::SelectNextHost(const FInputActionValue& Value)
+{
+	const FVector MyLoc = GetActorLocation();
+
+	TArray<AMobEnemy*> InRange;
+	for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
+	{
+		AMobEnemy* Mob = *It;
+		if (FVector::Dist2D(Mob->GetActorLocation(), MyLoc) <= PossessRange)
+		{
+			InRange.Add(Mob);
+		}
+	}
+
+	if (InRange.Num() == 0)
+	{
+		SetSelectedTarget(nullptr);
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(1, 1.5f, FColor::Orange, TEXT("No mob in range"));
+		}
+		return;
+	}
+
+	// Stable order by distance so Q cycles predictably.
+	InRange.Sort([MyLoc](const AMobEnemy& A, const AMobEnemy& B)
+	{
+		return FVector::DistSquared(A.GetActorLocation(), MyLoc) < FVector::DistSquared(B.GetActorLocation(), MyLoc);
+	});
+
+	const int32 CurrentIdx = InRange.IndexOfByKey(SelectedTarget);
+	const int32 NextIdx = (CurrentIdx == INDEX_NONE) ? 0 : (CurrentIdx + 1) % InRange.Num();
+	SetSelectedTarget(InRange[NextIdx]);
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(1, 1.5f, FColor::Cyan,
+			FString::Printf(TEXT("Target %d/%d  (Space to possess)"), NextIdx + 1, InRange.Num()));
+	}
+}
+
+void AParasitePawn::PerformPossess(const FInputActionValue& Value)
+{
+	AMobEnemy* Host = SelectedTarget;
+
+	// Convenience: if nothing selected, grab the nearest in range.
+	if (!Host)
+	{
+		const FVector MyLoc = GetActorLocation();
+		float BestDistSq = PossessRange * PossessRange;
+		for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
+		{
+			AMobEnemy* Mob = *It;
+			const float DistSq = FVector::DistSquared2D(Mob->GetActorLocation(), MyLoc);
+			if (DistSq <= BestDistSq)
+			{
+				BestDistSq = DistSq;
+				Host = Mob;
+			}
+		}
+	}
+
+	if (!Host)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(1, 1.5f, FColor::Orange, TEXT("No host to possess"));
+		}
+		return;
+	}
+
+	// Wear the host: adopt its body, jump to its position, consume the mob.
+	const FVector HostLoc = Host->GetActorLocation();
+	SetActorLocation(FVector(HostLoc.X, HostLoc.Y, GetActorLocation().Z));
+
+	if (HostMesh)
+	{
+		BodyMesh->SetStaticMesh(HostMesh);
+		BodyMesh->SetRelativeScale3D(FVector(0.9f));
+	}
+	bIsPossessing = true;
+
+	SetSelectedTarget(nullptr);
+	Host->Destroy();
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(2, 2.0f, FColor::Green, TEXT("Possessed a host!"));
+	}
+}
+
+void AParasitePawn::SetSelectedTarget(AMobEnemy* NewTarget)
+{
+	if (SelectedTarget == NewTarget)
+	{
+		return;
+	}
+	if (SelectedTarget)
+	{
+		SelectedTarget->SetHighlighted(false);
+	}
+	SelectedTarget = NewTarget;
+	if (SelectedTarget)
+	{
+		SelectedTarget->SetHighlighted(true);
+	}
 }
