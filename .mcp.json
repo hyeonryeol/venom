@@ -4,7 +4,7 @@
       "command": "C:\\Users\\이현렬\\AppData\\Roaming\\Python\\Python314\\Scripts\\uv.exe",
       "args": [
         "--directory",
-        "C:\\Users\\이현렬\\my private\\Python",
+        "C:\\venom\\Python",
         "run",
         "unreal_mcp_server.py"
       ]
