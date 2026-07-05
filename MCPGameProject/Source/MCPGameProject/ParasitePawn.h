@@ -107,10 +107,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float HostDamage = 25.f;
 
-	// Grows with level-ups.
-	UPROPERTY()
-	float DamageMultiplier = 1.f;
-
 	FTimerHandle AttackTimer;
 
 	// --- Progression ---
@@ -122,6 +118,20 @@ protected:
 
 	UPROPERTY()
 	float XPToNext = 5.f;
+
+	// --- Augment choice on level-up ---
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* Augment1Action; // 1
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* Augment2Action; // 2
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* Augment3Action; // 3
+
+	bool bChoosingAugment = false;
+	int32 PendingLevelUps = 0;
+	TArray<int32> CurrentAugmentOptions;
 
 	// Form meshes (parasite sphere <-> host cube), resolved in the constructor.
 	UPROPERTY()
@@ -142,4 +152,13 @@ protected:
 
 	void PerformAttack();
 	void LevelUp();
+
+	void StartAugmentChoice();
+	void ChooseAugment(int32 OptionIndex);
+	void ApplyAugment(int32 AugmentId);
+	FString AugmentName(int32 AugmentId) const;
+
+	void OnAugment1(const FInputActionValue& Value);
+	void OnAugment2(const FInputActionValue& Value);
+	void OnAugment3(const FInputActionValue& Value);
 };

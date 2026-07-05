@@ -48,7 +48,7 @@ protected:
 	float SeparationWeight = 1.5f;
 
 	UPROPERTY(EditAnywhere, Category = "Mob")
-	float Health = 30.f;
+	float Health = 125.f; // 5 goblin-host hits at 25 damage
 
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float XPReward = 1.f;

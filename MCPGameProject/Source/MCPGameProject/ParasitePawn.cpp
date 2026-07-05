@@ -13,6 +13,7 @@
 #include "EngineUtils.h"
 #include "DrawDebugHelpers.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
 #include "EnhancedInputComponent.h"
@@ -90,12 +91,22 @@ AParasitePawn::AParasitePawn()
 	PossessAction = CreateDefaultSubobject<UInputAction>(TEXT("PossessAction"));
 	PossessAction->ValueType = EInputActionValueType::Boolean;
 
+	Augment1Action = CreateDefaultSubobject<UInputAction>(TEXT("Augment1Action"));
+	Augment1Action->ValueType = EInputActionValueType::Boolean;
+	Augment2Action = CreateDefaultSubobject<UInputAction>(TEXT("Augment2Action"));
+	Augment2Action->ValueType = EInputActionValueType::Boolean;
+	Augment3Action = CreateDefaultSubobject<UInputAction>(TEXT("Augment3Action"));
+	Augment3Action->ValueType = EInputActionValueType::Boolean;
+
 	InputMapping->MapKey(MoveForwardAction, EKeys::W);
 	InputMapping->MapKey(MoveBackwardAction, EKeys::S);
 	InputMapping->MapKey(MoveLeftAction, EKeys::A);
 	InputMapping->MapKey(MoveRightAction, EKeys::D);
 	InputMapping->MapKey(SelectHostAction, EKeys::Q);
 	InputMapping->MapKey(PossessAction, EKeys::SpaceBar);
+	InputMapping->MapKey(Augment1Action, EKeys::One);
+	InputMapping->MapKey(Augment2Action, EKeys::Two);
+	InputMapping->MapKey(Augment3Action, EKeys::Three);
 
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
@@ -140,6 +151,17 @@ void AParasitePawn::Tick(float DeltaSeconds)
 			FString::Printf(TEXT("Lv %d    XP %.0f/%.0f    [%s]"),
 				Level, XP, XPToNext, bIsPossessing ? TEXT("GOBLIN") : TEXT("parasite")));
 	}
+
+	// Augment picker overlay.
+	if (bChoosingAugment && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(10, 0.f, FColor::Magenta, TEXT("LEVEL UP! Pick an augment (press 1 / 2 / 3):"));
+		for (int32 i = 0; i < CurrentAugmentOptions.Num(); ++i)
+		{
+			GEngine->AddOnScreenDebugMessage(11 + i, 0.f, FColor::Cyan,
+				FString::Printf(TEXT("   [%d] %s"), i + 1, *AugmentName(CurrentAugmentOptions[i])));
+		}
+	}
 }
 
 void AParasitePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -156,6 +178,10 @@ void AParasitePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		// Fire once per press (Started), not every frame.
 		EIC->BindAction(SelectHostAction, ETriggerEvent::Started, this, &AParasitePawn::SelectNextHost);
 		EIC->BindAction(PossessAction, ETriggerEvent::Started, this, &AParasitePawn::PerformPossess);
+
+		EIC->BindAction(Augment1Action, ETriggerEvent::Started, this, &AParasitePawn::OnAugment1);
+		EIC->BindAction(Augment2Action, ETriggerEvent::Started, this, &AParasitePawn::OnAugment2);
+		EIC->BindAction(Augment3Action, ETriggerEvent::Started, this, &AParasitePawn::OnAugment3);
 	}
 }
 
@@ -298,7 +324,7 @@ void AParasitePawn::PerformAttack()
 	// Stats depend on the current form.
 	const bool bHost = bIsPossessing;
 	const float Range = bHost ? HostAttackRange : ParasiteAttackRange;
-	const float Damage = (bHost ? HostDamage : 0.f) * DamageMultiplier;
+	const float Damage = bHost ? HostDamage : 0.f;
 	const float Knockback = bHost ? 0.f : ParasiteKnockback;
 
 	const FVector MyLoc = GetActorLocation();
@@ -347,11 +373,105 @@ void AParasitePawn::LevelUp()
 {
 	++Level;
 	XPToNext = FMath::CeilToFloat(XPToNext * 1.3f);
-	DamageMultiplier += 0.25f;
+	++PendingLevelUps;
+
+	if (!bChoosingAugment)
+	{
+		StartAugmentChoice();
+	}
+}
+
+void AParasitePawn::StartAugmentChoice()
+{
+	if (PendingLevelUps <= 0)
+	{
+		return;
+	}
+
+	// Offer 3 distinct augments from the pool (ids 0..4).
+	TArray<int32> Pool = { 0, 1, 2, 3, 4 };
+	CurrentAugmentOptions.Reset();
+	for (int32 i = 0; i < 3 && Pool.Num() > 0; ++i)
+	{
+		const int32 Pick = FMath::RandRange(0, Pool.Num() - 1);
+		CurrentAugmentOptions.Add(Pool[Pick]);
+		Pool.RemoveAt(Pick);
+	}
+
+	bChoosingAugment = true;
+	// Near-freeze so the player can read and pick (input is real-time, still works).
+	UGameplayStatics::SetGlobalTimeDilation(this, 0.1f);
+}
+
+void AParasitePawn::ChooseAugment(int32 OptionIndex)
+{
+	if (!bChoosingAugment || !CurrentAugmentOptions.IsValidIndex(OptionIndex))
+	{
+		return;
+	}
+
+	ApplyAugment(CurrentAugmentOptions[OptionIndex]);
+
+	bChoosingAugment = false;
+	--PendingLevelUps;
+
+	if (PendingLevelUps > 0)
+	{
+		StartAugmentChoice(); // queue the next choice, stay slowed
+	}
+	else
+	{
+		UGameplayStatics::SetGlobalTimeDilation(this, 1.0f);
+	}
+}
+
+void AParasitePawn::ApplyAugment(int32 AugmentId)
+{
+	switch (AugmentId)
+	{
+	case 0: // more host damage
+		HostDamage += 10.f;
+		break;
+	case 1: // faster attacks
+		AttackInterval = FMath::Max(0.15f, AttackInterval * 0.85f);
+		GetWorldTimerManager().SetTimer(AttackTimer, this, &AParasitePawn::PerformAttack, AttackInterval, true, AttackInterval);
+		break;
+	case 2: // move speed
+		if (Movement)
+		{
+			Movement->MaxSpeed += 100.f;
+		}
+		break;
+	case 3: // possess range
+		PossessRange += 100.f;
+		break;
+	case 4: // parasite knockback
+		ParasiteKnockback += 400.f;
+		break;
+	default:
+		break;
+	}
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(5, 2.5f, FColor::Magenta,
-			FString::Printf(TEXT("LEVEL UP!  Lv %d  (dmg x%.2f)"), Level, DamageMultiplier));
+		GEngine->AddOnScreenDebugMessage(6, 2.5f, FColor::Green,
+			FString::Printf(TEXT("Augment: %s"), *AugmentName(AugmentId)));
 	}
 }
+
+FString AParasitePawn::AugmentName(int32 AugmentId) const
+{
+	switch (AugmentId)
+	{
+	case 0: return TEXT("+10 Host Damage");
+	case 1: return TEXT("+15% Attack Speed");
+	case 2: return TEXT("+100 Move Speed");
+	case 3: return TEXT("+100 Possess Range");
+	case 4: return TEXT("+400 Parasite Knockback");
+	default: return TEXT("Unknown");
+	}
+}
+
+void AParasitePawn::OnAugment1(const FInputActionValue& Value) { ChooseAugment(0); }
+void AParasitePawn::OnAugment2(const FInputActionValue& Value) { ChooseAugment(1); }
+void AParasitePawn::OnAugment3(const FInputActionValue& Value) { ChooseAugment(2); }
