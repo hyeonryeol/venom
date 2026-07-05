@@ -48,7 +48,9 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	if (ToPlayer.SizeSquared() > 1.f)
 	{
 		const FVector Dir = ToPlayer.GetSafeNormal();
-		AddMovementInput(Dir, 1.f);
+		// bForce=true: this pawn has no controller, and AddMovementInput is
+		// ignored for uncontrolled pawns unless forced.
+		AddMovementInput(Dir, 1.f, /*bForce=*/true);
 		SetActorRotation(Dir.Rotation());
 	}
 }
