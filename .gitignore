@@ -13,6 +13,7 @@ MCPGameProject/Plugins/**/Intermediate/
 Python/.venv/
 __pycache__/
 *.pyc
+*.egg-info/
 Python/unreal_mcp.log
 *.log
 
