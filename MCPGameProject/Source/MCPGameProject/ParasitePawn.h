@@ -78,10 +78,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Possession")
 	float PossessRange = 450.f;
 
-	// Seconds you can wear a host before you're forced out.
-	UPROPERTY(EditAnywhere, Category = "Possession")
-	float PossessDuration = 10.f;
-
 	// Currently highlighted candidate (raw UPROPERTY -> auto-nulled if it dies).
 	UPROPERTY()
 	AMobEnemy* SelectedTarget;
@@ -89,8 +85,6 @@ protected:
 	// True once we're wearing a host body.
 	UPROPERTY()
 	bool bIsPossessing = false;
-
-	FTimerHandle PossessTimer;
 
 	// Form meshes (parasite sphere <-> host cube), resolved in the constructor.
 	UPROPERTY()
@@ -106,9 +100,6 @@ protected:
 
 	void SelectNextHost(const FInputActionValue& Value);
 	void PerformPossess(const FInputActionValue& Value);
-
-	// Revert to parasite form (called when the possession timer runs out).
-	void EjectFromHost();
 
 	void SetSelectedTarget(AMobEnemy* NewTarget);
 };

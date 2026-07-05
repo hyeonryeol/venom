@@ -125,11 +125,10 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
 		/*YAxis=*/FVector(1.f, 0.f, 0.f), /*ZAxis=*/FVector(0.f, 1.f, 0.f), /*bDrawAxis=*/false);
 
-	if (bIsPossessing && GEngine)
+	// Drop the selection if the target has drifted out of range.
+	if (SelectedTarget && FVector::Dist2D(SelectedTarget->GetActorLocation(), GetActorLocation()) > PossessRange)
 	{
-		const float Remaining = GetWorldTimerManager().GetTimerRemaining(PossessTimer);
-		GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Yellow,
-			FString::Printf(TEXT("Host: %.1fs left"), FMath::Max(0.f, Remaining)));
+		SetSelectedTarget(nullptr);
 	}
 }
 
@@ -215,7 +214,13 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 {
 	AMobEnemy* Host = SelectedTarget;
 
-	// Convenience: if nothing selected, grab the nearest in range.
+	// The selected target must still be inside the possess range.
+	if (Host && FVector::Dist2D(Host->GetActorLocation(), GetActorLocation()) > PossessRange)
+	{
+		Host = nullptr;
+	}
+
+	// Convenience: if nothing valid selected, grab the nearest in range.
 	if (!Host)
 	{
 		const FVector MyLoc = GetActorLocation();
@@ -255,30 +260,9 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	SetSelectedTarget(nullptr);
 	Host->Destroy();
 
-	// Start (or restart) the countdown that forces us back out.
-	GetWorldTimerManager().SetTimer(PossessTimer, this, &AParasitePawn::EjectFromHost, PossessDuration, false);
-
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(2, 2.0f, FColor::Green, TEXT("Possessed a host!"));
-	}
-}
-
-void AParasitePawn::EjectFromHost()
-{
-	GetWorldTimerManager().ClearTimer(PossessTimer);
-	bIsPossessing = false;
-
-	// Burst back out as the bare parasite.
-	if (ParasiteMesh)
-	{
-		BodyMesh->SetStaticMesh(ParasiteMesh);
-		BodyMesh->SetRelativeScale3D(FVector(0.8f));
-	}
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(2, 2.0f, FColor::Red, TEXT("Ejected! Find a new host"));
 	}
 }
 
