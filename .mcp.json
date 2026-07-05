@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "unrealMCP": {
-      "command": "uv",
+      "command": "C:\\Users\\이현렬\\AppData\\Roaming\\Python\\Python314\\Scripts\\uv.exe",
       "args": [
         "--directory",
         "C:\\Users\\이현렬\\my private\\Python",

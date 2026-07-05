@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+unreal_mcp_server.py
+unreal_mcp.egg-info/PKG-INFO
+unreal_mcp.egg-info/SOURCES.txt
+unreal_mcp.egg-info/dependency_links.txt
+unreal_mcp.egg-info/requires.txt
+unreal_mcp.egg-info/top_level.txt
