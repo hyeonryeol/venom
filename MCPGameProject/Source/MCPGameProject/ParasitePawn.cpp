@@ -25,6 +25,8 @@
 AParasitePawn::AParasitePawn()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	// Keep drawing the augment overlay while the game is paused.
+	PrimaryActorTick.bTickEvenWhenPaused = true;
 
 	// Collision / root
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComp"));
@@ -119,6 +121,8 @@ void AParasitePawn::BeginPlay()
 
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
+		// (AVenomPlayerController already ticks input while paused, so the
+		//  augment picker can read 1/2/3 during the pause.)
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
 			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
 		{
@@ -207,6 +211,11 @@ void AParasitePawn::MoveRight(const FInputActionValue& Value)
 
 void AParasitePawn::SelectNextHost(const FInputActionValue& Value)
 {
+	if (bChoosingAugment)
+	{
+		return;
+	}
+
 	const FVector MyLoc = GetActorLocation();
 
 	TArray<AMobEnemy*> InRange;
@@ -248,6 +257,11 @@ void AParasitePawn::SelectNextHost(const FInputActionValue& Value)
 
 void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 {
+	if (bChoosingAugment)
+	{
+		return;
+	}
+
 	AMobEnemy* Host = SelectedTarget;
 
 	// The selected target must still be inside the possess range.
@@ -399,8 +413,9 @@ void AParasitePawn::StartAugmentChoice()
 	}
 
 	bChoosingAugment = true;
-	// Near-freeze so the player can read and pick (input is real-time, still works).
-	UGameplayStatics::SetGlobalTimeDilation(this, 0.1f);
+	// Full pause while choosing. Input still reaches us because the controller
+	// is set to tick when paused (see BeginPlay) and this pawn ticks-when-paused.
+	UGameplayStatics::SetGamePaused(this, true);
 }
 
 void AParasitePawn::ChooseAugment(int32 OptionIndex)
@@ -417,11 +432,11 @@ void AParasitePawn::ChooseAugment(int32 OptionIndex)
 
 	if (PendingLevelUps > 0)
 	{
-		StartAugmentChoice(); // queue the next choice, stay slowed
+		StartAugmentChoice(); // queue the next choice, stay paused
 	}
 	else
 	{
-		UGameplayStatics::SetGlobalTimeDilation(this, 1.0f);
+		UGameplayStatics::SetGamePaused(this, false);
 	}
 }
 
