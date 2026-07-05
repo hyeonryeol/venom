@@ -32,6 +32,9 @@ public:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void Tick(float DeltaSeconds) override;
 
+	/** Award experience; may trigger one or more level-ups. */
+	void AddXP(float Amount);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -86,6 +89,40 @@ protected:
 	UPROPERTY()
 	bool bIsPossessing = false;
 
+	// --- Attack (auto-pulse; stats depend on current form) ---
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float AttackInterval = 0.6f;
+
+	// Parasite form: no damage, short reach, shoves mobs back.
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float ParasiteAttackRange = 130.f;
+
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float ParasiteKnockback = 900.f;
+
+	// Host (goblin) form: real damage, longer reach, no knockback.
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float HostAttackRange = 300.f;
+
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float HostDamage = 25.f;
+
+	// Grows with level-ups.
+	UPROPERTY()
+	float DamageMultiplier = 1.f;
+
+	FTimerHandle AttackTimer;
+
+	// --- Progression ---
+	UPROPERTY()
+	int32 Level = 1;
+
+	UPROPERTY()
+	float XP = 0.f;
+
+	UPROPERTY()
+	float XPToNext = 5.f;
+
 	// Form meshes (parasite sphere <-> host cube), resolved in the constructor.
 	UPROPERTY()
 	UStaticMesh* ParasiteMesh;
@@ -102,4 +139,7 @@ protected:
 	void PerformPossess(const FInputActionValue& Value);
 
 	void SetSelectedTarget(AMobEnemy* NewTarget);
+
+	void PerformAttack();
+	void LevelUp();
 };

@@ -1,6 +1,7 @@
 // venom — Basic enemy mob. Chases the player. Future host for possession.
 
 #include "MobEnemy.h"
+#include "ParasitePawn.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -76,15 +77,40 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	FVector Desired = ChaseDir + Separation * SeparationWeight;
 	Desired.Z = 0.f;
 
+	FVector Delta = FVector::ZeroVector;
 	if (Desired.SizeSquared() > KINDA_SMALL_NUMBER)
 	{
-		const FVector MoveDir = Desired.GetSafeNormal();
-		SetActorLocation(MyLoc + MoveDir * MoveSpeed * DeltaSeconds, /*bSweep=*/false);
+		Delta += Desired.GetSafeNormal() * MoveSpeed * DeltaSeconds;
 	}
+	// Knockback rides on top of the chase movement, then bleeds off.
+	Delta += KnockbackVelocity * DeltaSeconds;
+	if (!Delta.IsNearlyZero())
+	{
+		SetActorLocation(MyLoc + Delta, /*bSweep=*/false);
+	}
+	KnockbackVelocity = FMath::VInterpTo(KnockbackVelocity, FVector::ZeroVector, DeltaSeconds, KnockbackDecay);
 
-	// Always face the player regardless of the separation nudge.
+	// Always face the player regardless of the separation/knockback nudge.
 	if (!ChaseDir.IsNearlyZero())
 	{
 		SetActorRotation(ChaseDir.Rotation());
 	}
+}
+
+void AMobEnemy::TakeHit(float DamageAmount)
+{
+	Health -= DamageAmount;
+	if (Health <= 0.f)
+	{
+		if (AParasitePawn* Player = Cast<AParasitePawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
+		{
+			Player->AddXP(XPReward);
+		}
+		Destroy();
+	}
+}
+
+void AMobEnemy::ApplyKnockback(const FVector& Impulse)
+{
+	KnockbackVelocity += Impulse;
 }

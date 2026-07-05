@@ -114,6 +114,9 @@ void AParasitePawn::BeginPlay()
 			Subsystem->AddMappingContext(InputMapping, 0);
 		}
 	}
+
+	// Auto-attack pulse.
+	GetWorldTimerManager().SetTimer(AttackTimer, this, &AParasitePawn::PerformAttack, AttackInterval, true, AttackInterval);
 }
 
 void AParasitePawn::Tick(float DeltaSeconds)
@@ -129,6 +132,13 @@ void AParasitePawn::Tick(float DeltaSeconds)
 	if (SelectedTarget && FVector::Dist2D(SelectedTarget->GetActorLocation(), GetActorLocation()) > PossessRange)
 	{
 		SetSelectedTarget(nullptr);
+	}
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::White,
+			FString::Printf(TEXT("Lv %d    XP %.0f/%.0f    [%s]"),
+				Level, XP, XPToNext, bIsPossessing ? TEXT("GOBLIN") : TEXT("parasite")));
 	}
 }
 
@@ -280,5 +290,68 @@ void AParasitePawn::SetSelectedTarget(AMobEnemy* NewTarget)
 	if (SelectedTarget)
 	{
 		SelectedTarget->SetHighlighted(true);
+	}
+}
+
+void AParasitePawn::PerformAttack()
+{
+	// Stats depend on the current form.
+	const bool bHost = bIsPossessing;
+	const float Range = bHost ? HostAttackRange : ParasiteAttackRange;
+	const float Damage = (bHost ? HostDamage : 0.f) * DamageMultiplier;
+	const float Knockback = bHost ? 0.f : ParasiteKnockback;
+
+	const FVector MyLoc = GetActorLocation();
+
+	// Gather first, then apply (damage can destroy mobs).
+	TArray<AMobEnemy*> Targets;
+	for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
+	{
+		AMobEnemy* Mob = *It;
+		if (FVector::DistSquared2D(Mob->GetActorLocation(), MyLoc) <= Range * Range)
+		{
+			Targets.Add(Mob);
+		}
+	}
+
+	for (AMobEnemy* Mob : Targets)
+	{
+		if (Knockback > 0.f)
+		{
+			FVector Away = Mob->GetActorLocation() - MyLoc;
+			Away.Z = 0.f;
+			Mob->ApplyKnockback(Away.GetSafeNormal() * Knockback);
+		}
+		if (Damage > 0.f)
+		{
+			Mob->TakeHit(Damage);
+		}
+	}
+
+	// Brief attack-range flash for feedback.
+	DrawDebugCircle(GetWorld(), MyLoc, Range, 32, bHost ? FColor::Orange : FColor::White,
+		false, AttackInterval * 0.5f, 0, 3.f, FVector(1.f, 0.f, 0.f), FVector(0.f, 1.f, 0.f), false);
+}
+
+void AParasitePawn::AddXP(float Amount)
+{
+	XP += Amount;
+	while (XP >= XPToNext)
+	{
+		XP -= XPToNext;
+		LevelUp();
+	}
+}
+
+void AParasitePawn::LevelUp()
+{
+	++Level;
+	XPToNext = FMath::CeilToFloat(XPToNext * 1.3f);
+	DamageMultiplier += 0.25f;
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(5, 2.5f, FColor::Magenta,
+			FString::Printf(TEXT("LEVEL UP!  Lv %d  (dmg x%.2f)"), Level, DamageMultiplier));
 	}
 }

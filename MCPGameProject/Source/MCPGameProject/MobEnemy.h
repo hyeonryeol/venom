@@ -22,6 +22,12 @@ public:
 	/** Visual cue while this mob is the parasite's current possession target. */
 	void SetHighlighted(bool bInHighlighted);
 
+	/** Take damage; grants XP to the player and dies at <= 0 HP. */
+	void TakeHit(float DamageAmount);
+
+	/** Add an outward velocity impulse (knockback). */
+	void ApplyKnockback(const FVector& Impulse);
+
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Mob")
 	USphereComponent* CollisionComp;
@@ -40,6 +46,18 @@ protected:
 	// How strongly separation competes with the chase direction.
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float SeparationWeight = 1.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float Health = 30.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float XPReward = 1.f;
+
+	// How fast a knockback impulse bleeds off (higher = snappier).
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float KnockbackDecay = 5.f;
+
+	FVector KnockbackVelocity = FVector::ZeroVector;
 
 	static constexpr float NormalScale = 0.9f;
 	static constexpr float HighlightScale = 1.3f;
