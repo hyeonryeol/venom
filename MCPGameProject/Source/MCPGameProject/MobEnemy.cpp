@@ -4,7 +4,6 @@
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "GameFramework/FloatingPawnMovement.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -14,7 +13,8 @@ AMobEnemy::AMobEnemy()
 
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComp"));
 	CollisionComp->InitSphereRadius(45.f);
-	CollisionComp->SetCollisionProfileName(TEXT("Pawn"));
+	// Overlap the player (for future possession) but don't block movement.
+	CollisionComp->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	RootComponent = CollisionComp;
 
 	BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
@@ -26,11 +26,6 @@ AMobEnemy::AMobEnemy()
 	{
 		BodyMesh->SetStaticMesh(CubeFinder.Object);
 	}
-
-	Movement = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("Movement"));
-	Movement->MaxSpeed = MoveSpeed;
-	Movement->Acceleration = 2000.f;
-	Movement->Deceleration = 2000.f;
 }
 
 void AMobEnemy::Tick(float DeltaSeconds)
@@ -43,14 +38,16 @@ void AMobEnemy::Tick(float DeltaSeconds)
 		return;
 	}
 
-	FVector ToPlayer = Player->GetActorLocation() - GetActorLocation();
-	ToPlayer.Z = 0.f;
+	const FVector MyLoc = GetActorLocation();
+	FVector ToPlayer = Player->GetActorLocation() - MyLoc;
+	ToPlayer.Z = 0.f; // move on the player's plane
+
 	if (ToPlayer.SizeSquared() > 1.f)
 	{
 		const FVector Dir = ToPlayer.GetSafeNormal();
-		// bForce=true: this pawn has no controller, and AddMovementInput is
-		// ignored for uncontrolled pawns unless forced.
-		AddMovementInput(Dir, 1.f, /*bForce=*/true);
+		// Direct move — no controller/movement-component needed. Slides over
+		// terrain toward the player like a classic top-down survivor mob.
+		SetActorLocation(MyLoc + Dir * MoveSpeed * DeltaSeconds, /*bSweep=*/false);
 		SetActorRotation(Dir.Rotation());
 	}
 }

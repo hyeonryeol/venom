@@ -8,7 +8,6 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
-class UFloatingPawnMovement;
 
 UCLASS()
 class MCPGAMEPROJECT_API AMobEnemy : public APawn
@@ -26,9 +25,6 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Mob")
 	UStaticMeshComponent* BodyMesh;
-
-	UPROPERTY(VisibleAnywhere, Category = "Mob")
-	UFloatingPawnMovement* Movement;
 
 	// Slower than the player (600) so the parasite can be kited.
 	UPROPERTY(EditAnywhere, Category = "Mob")
