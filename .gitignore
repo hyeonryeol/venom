@@ -1,0 +1,23 @@
+# ===== Unreal Engine =====
+MCPGameProject/Binaries/
+MCPGameProject/Build/
+MCPGameProject/Intermediate/
+MCPGameProject/DerivedDataCache/
+MCPGameProject/Saved/
+MCPGameProject/.vs/
+MCPGameProject/*.sln
+MCPGameProject/Plugins/**/Binaries/
+MCPGameProject/Plugins/**/Intermediate/
+
+# ===== Python / uv =====
+Python/.venv/
+__pycache__/
+*.pyc
+Python/unreal_mcp.log
+*.log
+
+# ===== OS / Editor =====
+.vs/
+.vscode/
+Thumbs.db
+Desktop.ini
