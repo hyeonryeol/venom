@@ -63,6 +63,12 @@ AParasitePawn::AParasitePawn()
 		BodyMesh->SetStaticMesh(ParasiteMesh);
 	}
 
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TintFinder(TEXT("/Game/Materials/M_VenomTint.M_VenomTint"));
+	if (TintFinder.Succeeded())
+	{
+		TintMaterial = TintFinder.Object;
+	}
+
 	// Top-down camera boom
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
@@ -146,14 +152,13 @@ void AParasitePawn::BeginPlay()
 
 void AParasitePawn::ApplyBodyColor()
 {
-	// The static mesh swaps between forms, so recreate the dynamic material.
-	BodyMID = BodyMesh->CreateDynamicMaterialInstance(0);
-	if (BodyMID)
+	if (!TintMaterial)
 	{
-		const FLinearColor C = bIsPossessing ? HostColor : ParasiteColor;
-		BodyMID->SetVectorParameterValue(TEXT("Color"), C);
-		BodyMID->SetVectorParameterValue(TEXT("BaseColor"), C);
+		return;
 	}
+	BodyMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
+	BodyMesh->SetMaterial(0, BodyMID);
+	BodyMID->SetVectorParameterValue(TEXT("Color"), bIsPossessing ? HostColor : ParasiteColor);
 }
 
 void AParasitePawn::Tick(float DeltaSeconds)

@@ -14,6 +14,7 @@ class UFloatingPawnMovement;
 class UInputAction;
 class UInputMappingContext;
 class UStaticMesh;
+class UMaterialInterface;
 class UMaterialInstanceDynamic;
 class AMobEnemy;
 struct FInputActionValue;
@@ -140,6 +141,9 @@ protected:
 
 	UPROPERTY()
 	UStaticMesh* HostMesh;
+
+	UPROPERTY()
+	UMaterialInterface* TintMaterial;
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* BodyMID;

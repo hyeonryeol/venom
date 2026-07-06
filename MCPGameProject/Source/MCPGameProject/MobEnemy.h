@@ -8,6 +8,7 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
+class UMaterialInterface;
 class UMaterialInstanceDynamic;
 
 UCLASS()
@@ -34,6 +35,9 @@ protected:
 
 	// Re-applies the mob's colour based on current state (highlight/base).
 	void RefreshColor();
+
+	UPROPERTY()
+	UMaterialInterface* TintMaterial;
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* BodyMID;

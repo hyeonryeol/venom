@@ -37,13 +37,23 @@ AMobEnemy::AMobEnemy()
 	{
 		BodyMesh->SetStaticMesh(CubeFinder.Object);
 	}
+
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TintFinder(TEXT("/Game/Materials/M_VenomTint.M_VenomTint"));
+	if (TintFinder.Succeeded())
+	{
+		TintMaterial = TintFinder.Object;
+	}
 }
 
 void AMobEnemy::BeginPlay()
 {
 	Super::BeginPlay();
 
-	BodyMID = BodyMesh->CreateDynamicMaterialInstance(0);
+	if (TintMaterial)
+	{
+		BodyMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
+		BodyMesh->SetMaterial(0, BodyMID);
+	}
 	RefreshColor();
 }
 
