@@ -40,6 +40,12 @@ public:
 	/** Damage from a mob touching us. Ejects (if hosting) or ends the game. */
 	void ReceiveContactDamage(float Amount);
 
+	float GetHealth() const { return Health; }
+	float GetMaxHealth() const { return MaxHealth; }
+	bool IsPossessing() const { return bIsPossessing; }
+	bool IsInvulnerable() const { return bInvulnerable; }
+	bool IsDead() const { return bDead; }
+
 protected:
 	virtual void BeginPlay() override;
 

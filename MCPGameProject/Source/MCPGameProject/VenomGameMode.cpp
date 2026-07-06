@@ -4,6 +4,7 @@
 #include "ParasitePawn.h"
 #include "MobEnemy.h"
 #include "VenomPlayerController.h"
+#include "VenomHUD.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
@@ -13,6 +14,7 @@ AVenomGameMode::AVenomGameMode()
 {
 	DefaultPawnClass = AParasitePawn::StaticClass();
 	PlayerControllerClass = AVenomPlayerController::StaticClass();
+	HUDClass = AVenomHUD::StaticClass();
 	MobClass = AMobEnemy::StaticClass();
 }
 
