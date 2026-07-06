@@ -140,6 +140,9 @@ protected:
 	// Facing/aim direction (last movement direction).
 	FVector AimDirection = FVector(1.f, 0.f, 0.f);
 
+	// Direction of the current auto-targeted attack (toward nearest enemy).
+	FVector AttackFacing = FVector(1.f, 0.f, 0.f);
+
 	bool bHostAttacking = false;
 	FTimerHandle HostAttackTimer;
 

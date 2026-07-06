@@ -300,7 +300,12 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		FVector Vel = GetVelocity();
 		Vel.Z = 0.f;
 		const bool bWantWalk = Vel.Size() > 20.f;
-		if (bWantWalk)
+		if (bHostAttacking)
+		{
+			// Turn to face the target mid-swing (backpedal-and-slash look).
+			SetActorRotation(AttackFacing.Rotation());
+		}
+		else if (bWantWalk)
 		{
 			SetActorRotation(Vel.Rotation());
 		}
@@ -539,12 +544,32 @@ void AParasitePawn::PerformAttack()
 	const float Knockback = bHost ? 0.f : ParasiteKnockback;
 
 	const FVector MyLoc = GetActorLocation();
-	FVector Aim = AimDirection;
+
+	// Auto-target: aim the wedge at the nearest mob in range.
+	AMobEnemy* Nearest = nullptr;
+	float BestDistSq = Range * Range;
+	for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
+	{
+		AMobEnemy* Mob = *It;
+		const float DistSq = FVector::DistSquared2D(Mob->GetActorLocation(), MyLoc);
+		if (DistSq <= BestDistSq)
+		{
+			BestDistSq = DistSq;
+			Nearest = Mob;
+		}
+	}
+	if (!Nearest)
+	{
+		return; // nothing in range — don't swing
+	}
+
+	FVector Aim = Nearest->GetActorLocation() - MyLoc;
 	Aim.Z = 0.f;
 	Aim = Aim.GetSafeNormal();
+	AttackFacing = Aim; // the host turns to face this while swinging
 	const float CosThreshold = FMath::Cos(FMath::DegreesToRadians(AttackHalfAngleDeg));
 
-	// Gather targets inside the forward wedge (then apply — damage can destroy mobs).
+	// Gather targets inside the wedge around the target (damage can destroy mobs).
 	TArray<AMobEnemy*> Targets;
 	for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
 	{
