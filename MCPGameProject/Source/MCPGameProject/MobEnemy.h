@@ -8,6 +8,7 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
+class USceneComponent;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
 
@@ -38,6 +39,21 @@ protected:
 
 	// Re-applies the mob's colour based on current state (highlight/base).
 	void RefreshColor();
+
+	// Floating health bar (billboarded thin cubes).
+	void UpdateHealthBar();
+
+	UPROPERTY()
+	USceneComponent* HealthBarRoot;
+
+	UPROPERTY()
+	UStaticMeshComponent* HealthBarBG;
+
+	UPROPERTY()
+	UStaticMeshComponent* HealthBarFill;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* FillMID;
 
 	UPROPERTY()
 	UMaterialInterface* TintMaterial;

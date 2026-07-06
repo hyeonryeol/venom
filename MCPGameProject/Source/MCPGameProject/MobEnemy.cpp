@@ -5,7 +5,9 @@
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SceneComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "TimerManager.h"
@@ -33,9 +35,10 @@ AMobEnemy::AMobEnemy()
 	BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	BodyMesh->SetRelativeScale3D(FVector(NormalScale));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
-	if (CubeFinder.Succeeded())
+	UStaticMesh* CubeMesh = CubeFinder.Succeeded() ? CubeFinder.Object : nullptr;
+	if (CubeMesh)
 	{
-		BodyMesh->SetStaticMesh(CubeFinder.Object);
+		BodyMesh->SetStaticMesh(CubeMesh);
 	}
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TintFinder(TEXT("/Game/Materials/M_VenomTint.M_VenomTint"));
@@ -43,6 +46,27 @@ AMobEnemy::AMobEnemy()
 	{
 		TintMaterial = TintFinder.Object;
 	}
+
+	// Floating health bar: a background + fill made of thin cubes, above the mob.
+	HealthBarRoot = CreateDefaultSubobject<USceneComponent>(TEXT("HealthBarRoot"));
+	HealthBarRoot->SetupAttachment(RootComponent);
+	HealthBarRoot->SetRelativeLocation(FVector(0.f, 0.f, 120.f));
+	HealthBarRoot->SetUsingAbsoluteRotation(true); // billboarded in Tick
+
+	HealthBarBG = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HealthBarBG"));
+	HealthBarBG->SetupAttachment(HealthBarRoot);
+	HealthBarBG->SetStaticMesh(CubeMesh);
+	HealthBarBG->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HealthBarBG->SetCastShadow(false);
+	HealthBarBG->SetRelativeScale3D(FVector(0.06f, 1.2f, 0.14f));
+
+	HealthBarFill = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HealthBarFill"));
+	HealthBarFill->SetupAttachment(HealthBarRoot);
+	HealthBarFill->SetStaticMesh(CubeMesh);
+	HealthBarFill->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HealthBarFill->SetCastShadow(false);
+	HealthBarFill->SetRelativeScale3D(FVector(0.07f, 1.2f, 0.15f));
+	HealthBarFill->SetRelativeLocation(FVector(2.f, 0.f, 0.f));
 }
 
 void AMobEnemy::BeginPlay()
@@ -55,8 +79,36 @@ void AMobEnemy::BeginPlay()
 	{
 		BodyMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
 		BodyMesh->SetMaterial(0, BodyMID);
+
+		UMaterialInstanceDynamic* BgMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
+		HealthBarBG->SetMaterial(0, BgMID);
+		BgMID->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.02f, 0.02f, 0.02f));
+
+		FillMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
+		HealthBarFill->SetMaterial(0, FillMID);
 	}
 	RefreshColor();
+	UpdateHealthBar();
+}
+
+void AMobEnemy::UpdateHealthBar()
+{
+	if (!HealthBarFill)
+	{
+		return;
+	}
+	const float Ratio = (MaxHealth > 0.f) ? FMath::Clamp(Health / MaxHealth, 0.f, 1.f) : 0.f;
+	const float FullWidth = 1.2f;                         // matches BG scale Y
+	const float HalfWidthUnits = FullWidth * 100.f * 0.5f; // cube is 100 units
+
+	HealthBarFill->SetRelativeScale3D(FVector(0.07f, FMath::Max(0.0001f, FullWidth * Ratio), 0.15f));
+	HealthBarFill->SetRelativeLocation(FVector(2.f, -HalfWidthUnits * (1.f - Ratio), 0.f));
+
+	if (FillMID)
+	{
+		const FLinearColor C = FMath::Lerp(FLinearColor(0.9f, 0.1f, 0.1f), FLinearColor(0.15f, 0.9f, 0.15f), Ratio);
+		FillMID->SetVectorParameterValue(TEXT("Color"), C);
+	}
 }
 
 void AMobEnemy::RefreshColor()
@@ -138,6 +190,17 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	{
 		SetActorRotation(ChaseDir.Rotation());
 	}
+
+	// Face the health bar toward the camera and refresh its fill.
+	if (APlayerCameraManager* Cam = UGameplayStatics::GetPlayerCameraManager(this, 0))
+	{
+		const FVector ToCam = Cam->GetCameraLocation() - HealthBarRoot->GetComponentLocation();
+		if (!ToCam.IsNearlyZero())
+		{
+			HealthBarRoot->SetWorldRotation(ToCam.Rotation());
+		}
+	}
+	UpdateHealthBar();
 
 	// Contact attack: bite the player on a cooldown while touching.
 	if (AParasitePawn* Parasite = Cast<AParasitePawn>(Player))
