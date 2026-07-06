@@ -200,7 +200,8 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
 		/*YAxis=*/FVector(1.f, 0.f, 0.f), /*ZAxis=*/FVector(0.f, 1.f, 0.f), /*bDrawAxis=*/false);
 
-	// Symbiote "alive" feel while a bare parasite: pulse the rim + breathe.
+	// Parasite = crawling ooze: flat puddle that stretches along its motion and
+	// undulates, plus a pulsing red rim.
 	if (!bIsPossessing)
 	{
 		const float T = GetWorld()->GetTimeSeconds();
@@ -208,7 +209,25 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		{
 			BodyMID->SetScalarParameterValue(TEXT("Pulse"), 0.55f + 0.45f * FMath::Sin(T * 4.f));
 		}
-		BodyMesh->SetRelativeScale3D(FVector(0.8f * (1.f + 0.06f * FMath::Sin(T * 3.f))));
+
+		const float Base = 0.8f;
+		const float FlatZ = 0.5f; // squashed onto the ground like slime
+
+		FVector Vel = GetVelocity();
+		Vel.Z = 0.f;
+		if (Vel.Size() > 15.f)
+		{
+			// Point the stretch axis along movement, undulate it (crawl).
+			BodyMesh->SetWorldRotation(Vel.Rotation());
+			const float Stretch = 0.18f + 0.14f * FMath::Sin(T * 9.f);
+			BodyMesh->SetRelativeScale3D(FVector(Base * (1.f + Stretch), Base * (1.f - 0.5f * Stretch), Base * FlatZ));
+		}
+		else
+		{
+			// Idle: a gently breathing blob.
+			const float B = 1.f + 0.06f * FMath::Sin(T * 3.f);
+			BodyMesh->SetRelativeScale3D(FVector(Base * B, Base * B, Base * FlatZ * B));
+		}
 	}
 
 	// Drop the selection if the target has drifted out of range.
@@ -393,6 +412,7 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	{
 		BodyMesh->SetStaticMesh(HostMesh);
 		BodyMesh->SetRelativeScale3D(FVector(0.9f));
+		BodyMesh->SetRelativeRotation(FRotator::ZeroRotator);
 	}
 	bIsPossessing = true;
 	ApplyBodyColor();
