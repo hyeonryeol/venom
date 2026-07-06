@@ -133,7 +133,7 @@ AParasitePawn::AParasitePawn()
 
 	// Movement
 	Movement = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("Movement"));
-	Movement->MaxSpeed = 600.f;
+	Movement->MaxSpeed = 300.f; // just a bit faster than goblins (250)
 	Movement->Acceleration = 4000.f;
 	Movement->Deceleration = 4000.f;
 
@@ -313,16 +313,16 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		{
 			SetActorRotation(Vel.Rotation());
 		}
-		const float Move01 = FMath::Clamp(Speed / 600.f, 0.f, 1.f);
+		const float Move01 = FMath::Clamp(Speed / 300.f, 0.f, 1.f);
 
-		// Faster, bigger surge while moving; gentle breathing while idle.
+		// Subtle surge while moving; gentle breathing while idle.
 		const float S = FMath::Sin(T * (5.f + 7.f * Move01));
-		const float Amp = 0.06f + 0.12f * Move01;
+		const float Amp = 0.05f + 0.07f * Move01;
 		const float ScaleXY = 60.f * (1.f - Amp * 0.6f * S);
 		const float ScaleZ = 60.f * (1.f + Amp * S);
 		SymbioteMesh->SetRelativeScale3D(FVector(ScaleXY, ScaleXY, ScaleZ));
 
-		const float Bob = (2.f + 12.f * Move01) * (0.5f + 0.5f * S);
+		const float Bob = (1.f + 3.f * Move01) * (0.5f + 0.5f * S);
 		SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f + Bob));
 	}
 	else
