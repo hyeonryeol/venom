@@ -62,8 +62,8 @@ AParasitePawn::AParasitePawn()
 	SymbioteMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SymbioteMesh"));
 	SymbioteMesh->SetupAttachment(RootComponent);
 	SymbioteMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	SymbioteMesh->SetRelativeScale3D(FVector(1.0f));
-	SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+	SymbioteMesh->SetRelativeScale3D(FVector(80.f)); // model imported in metres (~2u)
+	SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
 	SymbioteMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
 	SymbioteMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> SymbioteMeshFinder(TEXT("/Game/baisegongshengti_battle.baisegongshengti_battle"));
