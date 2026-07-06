@@ -190,6 +190,13 @@ void AParasitePawn::Tick(float DeltaSeconds)
 				FMath::Max(0.f, Health), MaxHealth, Level, XP, XPToNext,
 				bIsPossessing ? TEXT("GOBLIN") : TEXT("parasite"),
 				bInvulnerable ? TEXT("  (invuln)") : TEXT("")));
+
+		if (!bPossessReady)
+		{
+			const float CD = GetWorldTimerManager().GetTimerRemaining(PossessCDTimer);
+			GEngine->AddOnScreenDebugMessage(7, 0.f, FColor::Orange,
+				FString::Printf(TEXT("Possess CD: %.1fs"), FMath::Max(0.f, CD)));
+		}
 	}
 
 	// Augment picker overlay.
@@ -299,6 +306,17 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 		return;
 	}
 
+	if (!bPossessReady)
+	{
+		if (GEngine)
+		{
+			const float CD = GetWorldTimerManager().GetTimerRemaining(PossessCDTimer);
+			GEngine->AddOnScreenDebugMessage(1, 1.2f, FColor::Orange,
+				FString::Printf(TEXT("Possess on cooldown (%.1fs)"), FMath::Max(0.f, CD)));
+		}
+		return;
+	}
+
 	AMobEnemy* Host = SelectedTarget;
 
 	// The selected target must still be inside the possess range.
@@ -348,6 +366,10 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	// Fresh host body: full host HP.
 	MaxHealth = HostMaxHP;
 	Health = HostMaxHP;
+
+	// Start the possess cooldown.
+	bPossessReady = false;
+	GetWorldTimerManager().SetTimer(PossessCDTimer, this, &AParasitePawn::OnPossessReady, PossessCooldown, false);
 
 	SetSelectedTarget(nullptr);
 	Host->Destroy();
@@ -581,6 +603,11 @@ void AParasitePawn::EjectFromHost()
 void AParasitePawn::EndInvuln()
 {
 	bInvulnerable = false;
+}
+
+void AParasitePawn::OnPossessReady()
+{
+	bPossessReady = true;
 }
 
 void AParasitePawn::GameOver()

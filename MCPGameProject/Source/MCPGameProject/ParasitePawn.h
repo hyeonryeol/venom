@@ -86,6 +86,13 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Possession")
 	float PossessRange = 450.f;
 
+	// Cooldown between possessions (stops host-hopping to refill HP).
+	UPROPERTY(EditAnywhere, Category = "Possession")
+	float PossessCooldown = 4.f;
+
+	bool bPossessReady = true;
+	FTimerHandle PossessCDTimer;
+
 	// Currently highlighted candidate (raw UPROPERTY -> auto-nulled if it dies).
 	UPROPERTY()
 	AMobEnemy* SelectedTarget;
@@ -200,4 +207,6 @@ protected:
 	void EndInvuln();
 	void GameOver();
 	void OnRestart(const FInputActionValue& Value);
+
+	void OnPossessReady();
 };
