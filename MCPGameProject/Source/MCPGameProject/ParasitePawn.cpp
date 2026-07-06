@@ -73,7 +73,7 @@ AParasitePawn::AParasitePawn()
 	HostGoblinMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("HostGoblinMesh"));
 	HostGoblinMesh->SetupAttachment(RootComponent);
 	HostGoblinMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	HostGoblinMesh->SetRelativeScale3D(FVector(1.0f));
+	HostGoblinMesh->SetRelativeScale3D(FVector(1.3f)); // a bit bigger than enemy goblins
 	HostGoblinMesh->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
 	HostGoblinMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
 	HostGoblinMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
