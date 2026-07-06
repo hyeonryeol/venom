@@ -293,8 +293,9 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
 		/*YAxis=*/FVector(1.f, 0.f, 0.f), /*ZAxis=*/FVector(0.f, 1.f, 0.f), /*bDrawAxis=*/false);
 
-	// Parasite: symbiote creature faces its movement and pulses its red rim.
-	if (!bIsPossessing)
+	// Parasite: symbiote faces its movement, pulses its rim, and — since it has
+	// no animations — bobs and squash/stretches procedurally so it looks alive.
+	if (!bIsPossessing && SymbioteMesh)
 	{
 		const float T = GetWorld()->GetTimeSeconds();
 		for (UMaterialInstanceDynamic* MID : SymbioteMIDs)
@@ -307,10 +308,22 @@ void AParasitePawn::Tick(float DeltaSeconds)
 
 		FVector Vel = GetVelocity();
 		Vel.Z = 0.f;
-		if (Vel.Size() > 20.f)
+		const float Speed = Vel.Size();
+		if (Speed > 20.f)
 		{
 			SetActorRotation(Vel.Rotation());
 		}
+		const float Move01 = FMath::Clamp(Speed / 600.f, 0.f, 1.f);
+
+		// Faster, bigger surge while moving; gentle breathing while idle.
+		const float S = FMath::Sin(T * (5.f + 7.f * Move01));
+		const float Amp = 0.06f + 0.12f * Move01;
+		const float ScaleXY = 60.f * (1.f - Amp * 0.6f * S);
+		const float ScaleZ = 60.f * (1.f + Amp * S);
+		SymbioteMesh->SetRelativeScale3D(FVector(ScaleXY, ScaleXY, ScaleZ));
+
+		const float Bob = (2.f + 12.f * Move01) * (0.5f + 0.5f * S);
+		SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f + Bob));
 	}
 	else
 	{
