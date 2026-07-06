@@ -128,9 +128,22 @@ void AMobEnemy::Tick(float DeltaSeconds)
 		Delta += Desired.GetSafeNormal() * MoveSpeed * DeltaSeconds;
 	}
 	Delta += KnockbackVelocity * DeltaSeconds;
-	if (!Delta.IsNearlyZero())
+
+	FVector NewLoc = MyLoc + Delta;
+
+	// Never overlap the player's body — hold at MinPlayerDistance.
+	FVector FromPlayer = NewLoc - Player->GetActorLocation();
+	FromPlayer.Z = 0.f;
+	const float DistToPlayer = FromPlayer.Size();
+	if (DistToPlayer > KINDA_SMALL_NUMBER && DistToPlayer < MinPlayerDistance)
 	{
-		SetActorLocation(MyLoc + Delta, /*bSweep=*/false);
+		NewLoc = Player->GetActorLocation() + (FromPlayer / DistToPlayer) * MinPlayerDistance;
+		NewLoc.Z = MyLoc.Z;
+	}
+
+	if (!NewLoc.Equals(MyLoc))
+	{
+		SetActorLocation(NewLoc, /*bSweep=*/false);
 	}
 	KnockbackVelocity = FMath::VInterpTo(KnockbackVelocity, FVector::ZeroVector, DeltaSeconds, KnockbackDecay);
 

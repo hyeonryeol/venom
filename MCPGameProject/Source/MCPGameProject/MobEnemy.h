@@ -74,6 +74,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float SeparationWeight = 1.5f;
 
+	// Mobs never get closer than this to the player (no overlapping the body).
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float MinPlayerDistance = 100.f;
+
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float MaxHealth = 125.f; // 5 goblin-host hits at 25 damage
 
