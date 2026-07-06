@@ -8,12 +8,14 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
+class USkeletalMeshComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UFloatingPawnMovement;
 class UInputAction;
 class UInputMappingContext;
 class UStaticMesh;
+class UAnimSequence;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
 class AMobEnemy;
@@ -64,6 +66,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Parasite")
 	UFloatingPawnMovement* Movement;
+
+	// Host form: the possessed goblin, symbiote-tinted (hidden while a parasite).
+	UPROPERTY(VisibleAnywhere, Category = "Parasite")
+	USkeletalMeshComponent* HostGoblinMesh;
 
 	// --- Input (created programmatically, no assets needed) ---
 	UPROPERTY(EditAnywhere, Category = "Input")
@@ -168,25 +174,38 @@ protected:
 	bool bDead = false;
 	FTimerHandle InvulnTimer;
 
-	// Form meshes (parasite sphere <-> host cube), resolved in the constructor.
+	// Parasite ooze mesh (sphere), resolved in the constructor.
 	UPROPERTY()
 	UStaticMesh* ParasiteMesh;
 
 	UPROPERTY()
-	UStaticMesh* HostMesh;
-
-	UPROPERTY()
 	UMaterialInterface* TintMaterial;
 
-	// Black glossy symbiote look for the parasite form (pulsing red rim).
+	// Black glossy symbiote look (pulsing red rim) — used by both forms.
 	UPROPERTY()
 	UMaterialInterface* SymbioteMaterial;
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* BodyMID;
 
-	// Tint the body for the current form (parasite vs host).
+	// Host goblin animations + its symbiote-tinted material instances.
+	UPROPERTY()
+	UAnimSequence* HostWalkAnim;
+
+	UPROPERTY()
+	UAnimSequence* HostIdleAnim;
+
+	UPROPERTY()
+	TArray<UMaterialInstanceDynamic*> HostMIDs;
+
+	bool bHostWalking = false;
+
+	// Apply the symbiote look to the parasite ooze body.
 	void ApplyBodyColor();
+
+	// Show/dress the host goblin (symbiote-tinted) when possessing.
+	void EnterHostForm();
+	void ExitHostForm();
 
 	void MoveForward(const FInputActionValue& Value);
 	void MoveBackward(const FInputActionValue& Value);

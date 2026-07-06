@@ -5,6 +5,9 @@
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimSequence.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/FloatingPawnMovement.h"
@@ -26,8 +29,7 @@
 
 namespace
 {
-	const FLinearColor ParasiteColor(0.55f, 0.1f, 0.8f);  // purple
-	const FLinearColor HostColor(0.1f, 0.8f, 0.85f);       // cyan (your goblin)
+	const FLinearColor ParasiteColor(0.55f, 0.1f, 0.8f);  // purple (fallback tint)
 }
 
 AParasitePawn::AParasitePawn()
@@ -52,14 +54,6 @@ AParasitePawn::AParasitePawn()
 	if (SphereFinder.Succeeded())
 	{
 		ParasiteMesh = SphereFinder.Object;
-	}
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
-	if (CubeFinder.Succeeded())
-	{
-		HostMesh = CubeFinder.Object;
-	}
-	if (ParasiteMesh)
-	{
 		BodyMesh->SetStaticMesh(ParasiteMesh);
 	}
 
@@ -73,6 +67,32 @@ AParasitePawn::AParasitePawn()
 	if (SymbioteFinder.Succeeded())
 	{
 		SymbioteMaterial = SymbioteFinder.Object;
+	}
+
+	// Host form: the possessed goblin (same mesh as enemies, symbiote-tinted).
+	HostGoblinMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("HostGoblinMesh"));
+	HostGoblinMesh->SetupAttachment(RootComponent);
+	HostGoblinMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HostGoblinMesh->SetRelativeScale3D(FVector(1.0f));
+	HostGoblinMesh->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+	HostGoblinMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+	HostGoblinMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+	HostGoblinMesh->SetVisibility(false);
+
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> GoblinFinder(TEXT("/Game/Goblin_low_for_bake.Goblin_low_for_bake"));
+	if (GoblinFinder.Succeeded())
+	{
+		HostGoblinMesh->SetSkeletalMeshAsset(GoblinFinder.Object);
+	}
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> HostWalkFinder(TEXT("/Game/Goblin_low_for_bake_Anim_Anim_Full_Walk.Goblin_low_for_bake_Anim_Anim_Full_Walk"));
+	if (HostWalkFinder.Succeeded())
+	{
+		HostWalkAnim = HostWalkFinder.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> HostIdleFinder(TEXT("/Game/Goblin_low_for_bake_Anim_Anim_Full_Idle.Goblin_low_for_bake_Anim_Anim_Full_Idle"));
+	if (HostIdleFinder.Succeeded())
+	{
+		HostIdleAnim = HostIdleFinder.Object;
 	}
 
 	// Top-down camera boom
@@ -165,30 +185,51 @@ void AParasitePawn::BeginPlay()
 
 void AParasitePawn::ApplyBodyColor()
 {
-	if (bIsPossessing)
+	// Parasite ooze: black glossy symbiote with a pulsing red rim.
+	UMaterialInterface* Base = SymbioteMaterial ? SymbioteMaterial : TintMaterial;
+	if (Base)
 	{
-		// Host form: cyan tint (distinct from enemy goblins).
-		if (TintMaterial)
+		BodyMID = UMaterialInstanceDynamic::Create(Base, this);
+		BodyMesh->SetMaterial(0, BodyMID);
+		if (!SymbioteMaterial)
 		{
-			BodyMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
-			BodyMesh->SetMaterial(0, BodyMID);
-			BodyMID->SetVectorParameterValue(TEXT("Color"), HostColor);
+			BodyMID->SetVectorParameterValue(TEXT("Color"), ParasiteColor);
 		}
 	}
-	else
+}
+
+void AParasitePawn::EnterHostForm()
+{
+	BodyMesh->SetVisibility(false);
+	HostGoblinMesh->SetVisibility(true);
+
+	// Symbiote-tint every material slot of the possessed goblin.
+	HostMIDs.Reset();
+	if (SymbioteMaterial)
 	{
-		// Parasite form: black glossy symbiote with a pulsing red rim.
-		UMaterialInterface* Base = SymbioteMaterial ? SymbioteMaterial : TintMaterial;
-		if (Base)
+		const int32 NumMats = HostGoblinMesh->GetNumMaterials();
+		for (int32 i = 0; i < NumMats; ++i)
 		{
-			BodyMID = UMaterialInstanceDynamic::Create(Base, this);
-			BodyMesh->SetMaterial(0, BodyMID);
-			if (!SymbioteMaterial)
-			{
-				BodyMID->SetVectorParameterValue(TEXT("Color"), ParasiteColor);
-			}
+			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(SymbioteMaterial, this);
+			HostGoblinMesh->SetMaterial(i, MID);
+			HostMIDs.Add(MID);
 		}
 	}
+
+	bHostWalking = false;
+	if (HostIdleAnim)
+	{
+		HostGoblinMesh->PlayAnimation(HostIdleAnim, true);
+	}
+}
+
+void AParasitePawn::ExitHostForm()
+{
+	HostGoblinMesh->SetVisibility(false);
+	HostMIDs.Reset();
+	BodyMesh->SetVisibility(true);
+	SetActorRotation(FRotator::ZeroRotator);
+	ApplyBodyColor();
 }
 
 void AParasitePawn::Tick(float DeltaSeconds)
@@ -227,6 +268,35 @@ void AParasitePawn::Tick(float DeltaSeconds)
 			// Idle: a gently breathing blob.
 			const float B = 1.f + 0.06f * FMath::Sin(T * 3.f);
 			BodyMesh->SetRelativeScale3D(FVector(Base * B, Base * B, Base * FlatZ * B));
+		}
+	}
+	else
+	{
+		// Host goblin: face movement, switch walk/idle, and keep the red rim lit.
+		const float T = GetWorld()->GetTimeSeconds();
+		for (UMaterialInstanceDynamic* MID : HostMIDs)
+		{
+			if (MID)
+			{
+				MID->SetScalarParameterValue(TEXT("Pulse"), 0.6f + 0.4f * FMath::Sin(T * 4.f));
+			}
+		}
+
+		FVector Vel = GetVelocity();
+		Vel.Z = 0.f;
+		const bool bWantWalk = Vel.Size() > 20.f;
+		if (bWantWalk)
+		{
+			SetActorRotation(Vel.Rotation());
+		}
+		if (bWantWalk != bHostWalking)
+		{
+			bHostWalking = bWantWalk;
+			UAnimSequence* Anim = bWantWalk ? HostWalkAnim : HostIdleAnim;
+			if (Anim)
+			{
+				HostGoblinMesh->PlayAnimation(Anim, true);
+			}
 		}
 	}
 
@@ -408,14 +478,8 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	const FVector HostLoc = Host->GetActorLocation();
 	SetActorLocation(FVector(HostLoc.X, HostLoc.Y, GetActorLocation().Z));
 
-	if (HostMesh)
-	{
-		BodyMesh->SetStaticMesh(HostMesh);
-		BodyMesh->SetRelativeScale3D(FVector(0.9f));
-		BodyMesh->SetRelativeRotation(FRotator::ZeroRotator);
-	}
 	bIsPossessing = true;
-	ApplyBodyColor();
+	EnterHostForm();
 
 	// Inherit the host's current HP (possess a healthy one!).
 	MaxHealth = Host->GetMaxHealth();
@@ -634,12 +698,8 @@ void AParasitePawn::EjectFromHost()
 {
 	// Lose the body, burst back out as the bare parasite.
 	bIsPossessing = false;
-	if (ParasiteMesh)
-	{
-		BodyMesh->SetStaticMesh(ParasiteMesh);
-		BodyMesh->SetRelativeScale3D(FVector(0.8f));
-	}
-	ApplyBodyColor();
+	BodyMesh->SetRelativeScale3D(FVector(0.8f));
+	ExitHostForm();
 
 	MaxHealth = ParasiteMaxHP;
 	Health = ParasiteMaxHP;
