@@ -49,6 +49,8 @@ void AMobEnemy::BeginPlay()
 {
 	Super::BeginPlay();
 
+	Health = MaxHealth;
+
 	if (TintMaterial)
 	{
 		BodyMID = UMaterialInstanceDynamic::Create(TintMaterial, this);

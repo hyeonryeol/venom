@@ -363,9 +363,9 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	bIsPossessing = true;
 	ApplyBodyColor();
 
-	// Fresh host body: full host HP.
-	MaxHealth = HostMaxHP;
-	Health = HostMaxHP;
+	// Inherit the host's current HP (possess a healthy one!).
+	MaxHealth = Host->GetMaxHealth();
+	Health = Host->GetHealth();
 
 	// Start the possess cooldown.
 	bPossessReady = false;

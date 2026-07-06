@@ -150,9 +150,6 @@ protected:
 
 	// --- Health / life ---
 	UPROPERTY(EditAnywhere, Category = "Health")
-	float HostMaxHP = 100.f;
-
-	UPROPERTY(EditAnywhere, Category = "Health")
 	float ParasiteMaxHP = 30.f;
 
 	// Grace window right after being ejected.

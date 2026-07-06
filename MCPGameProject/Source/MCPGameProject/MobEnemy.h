@@ -30,6 +30,9 @@ public:
 	/** Add an outward velocity impulse (knockback). */
 	void ApplyKnockback(const FVector& Impulse);
 
+	float GetHealth() const { return Health; }
+	float GetMaxHealth() const { return MaxHealth; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -64,7 +67,9 @@ protected:
 	float SeparationWeight = 1.5f;
 
 	UPROPERTY(EditAnywhere, Category = "Mob")
-	float Health = 125.f; // 5 goblin-host hits at 25 damage
+	float MaxHealth = 125.f; // 5 goblin-host hits at 25 damage
+
+	float Health = 125.f;
 
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float XPReward = 1.f;
