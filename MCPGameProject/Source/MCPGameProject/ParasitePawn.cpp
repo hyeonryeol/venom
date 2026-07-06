@@ -254,7 +254,7 @@ void AParasitePawn::Tick(float DeltaSeconds)
 	// Camera trails behind the facing direction (smoothly).
 	if (SpringArm)
 	{
-		const FRotator Target(-50.f, AimDirection.Rotation().Yaw + 180.f, 0.f);
+		const FRotator Target(-50.f, AimDirection.Rotation().Yaw, 0.f);
 		SpringArm->SetWorldRotation(FMath::RInterpTo(SpringArm->GetComponentRotation(), Target, DeltaSeconds, 5.f));
 	}
 
@@ -380,22 +380,30 @@ void AParasitePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void AParasitePawn::MoveForward(const FInputActionValue& Value)
 {
-	AddMovementInput(FVector::ForwardVector, Value.Get<float>());
+	FVector F = Camera->GetForwardVector();
+	F.Z = 0.f;
+	AddMovementInput(F.GetSafeNormal(), Value.Get<float>());
 }
 
 void AParasitePawn::MoveBackward(const FInputActionValue& Value)
 {
-	AddMovementInput(FVector::ForwardVector, -Value.Get<float>());
+	FVector F = Camera->GetForwardVector();
+	F.Z = 0.f;
+	AddMovementInput(F.GetSafeNormal(), -Value.Get<float>());
 }
 
 void AParasitePawn::MoveLeft(const FInputActionValue& Value)
 {
-	AddMovementInput(FVector::RightVector, -Value.Get<float>());
+	FVector R = Camera->GetRightVector();
+	R.Z = 0.f;
+	AddMovementInput(R.GetSafeNormal(), -Value.Get<float>());
 }
 
 void AParasitePawn::MoveRight(const FInputActionValue& Value)
 {
-	AddMovementInput(FVector::RightVector, Value.Get<float>());
+	FVector R = Camera->GetRightVector();
+	R.Z = 0.f;
+	AddMovementInput(R.GetSafeNormal(), Value.Get<float>());
 }
 
 void AParasitePawn::SelectNextHost(const FInputActionValue& Value)
