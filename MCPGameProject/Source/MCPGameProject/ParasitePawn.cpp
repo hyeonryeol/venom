@@ -100,11 +100,11 @@ AParasitePawn::AParasitePawn()
 		HostAttackAnim = HostAttackFinder.Object;
 	}
 
-	// Follow camera boom (rotates to face the player's aim in Tick).
+	// Fixed top-down camera boom (closer than before).
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
-	SpringArm->TargetArmLength = 750.f;
-	SpringArm->SetRelativeRotation(FRotator(-50.f, 0.f, 0.f));
+	SpringArm->TargetArmLength = 800.f;
+	SpringArm->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f));
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritYaw = false;
 	SpringArm->bInheritRoll = false;
@@ -251,13 +251,6 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		}
 	}
 
-	// Camera trails behind the facing direction (smoothly).
-	if (SpringArm)
-	{
-		const FRotator Target(-50.f, AimDirection.Rotation().Yaw, 0.f);
-		SpringArm->SetWorldRotation(FMath::RInterpTo(SpringArm->GetComponentRotation(), Target, DeltaSeconds, 5.f));
-	}
-
 	// Possession-range indicator: a flat red ring around the parasite.
 	DrawDebugCircle(GetWorld(), GetActorLocation(), PossessRange, 48, FColor::Red,
 		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
@@ -380,30 +373,22 @@ void AParasitePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void AParasitePawn::MoveForward(const FInputActionValue& Value)
 {
-	FVector F = Camera->GetForwardVector();
-	F.Z = 0.f;
-	AddMovementInput(F.GetSafeNormal(), Value.Get<float>());
+	AddMovementInput(FVector::ForwardVector, Value.Get<float>());
 }
 
 void AParasitePawn::MoveBackward(const FInputActionValue& Value)
 {
-	FVector F = Camera->GetForwardVector();
-	F.Z = 0.f;
-	AddMovementInput(F.GetSafeNormal(), -Value.Get<float>());
+	AddMovementInput(FVector::ForwardVector, -Value.Get<float>());
 }
 
 void AParasitePawn::MoveLeft(const FInputActionValue& Value)
 {
-	FVector R = Camera->GetRightVector();
-	R.Z = 0.f;
-	AddMovementInput(R.GetSafeNormal(), -Value.Get<float>());
+	AddMovementInput(FVector::RightVector, -Value.Get<float>());
 }
 
 void AParasitePawn::MoveRight(const FInputActionValue& Value)
 {
-	FVector R = Camera->GetRightVector();
-	R.Z = 0.f;
-	AddMovementInput(R.GetSafeNormal(), Value.Get<float>());
+	AddMovementInput(FVector::RightVector, Value.Get<float>());
 }
 
 void AParasitePawn::SelectNextHost(const FInputActionValue& Value)
