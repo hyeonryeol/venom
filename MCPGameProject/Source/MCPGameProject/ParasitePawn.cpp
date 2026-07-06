@@ -16,11 +16,19 @@
 #include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
+#include "Materials/MaterialInstanceDynamic.h"
+
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
 #include "InputMappingContext.h"
 #include "InputActionValue.h"
+
+namespace
+{
+	const FLinearColor ParasiteColor(0.55f, 0.1f, 0.8f);  // purple
+	const FLinearColor HostColor(0.1f, 0.8f, 0.85f);       // cyan (your goblin)
+}
 
 AParasitePawn::AParasitePawn()
 {
@@ -132,6 +140,20 @@ void AParasitePawn::BeginPlay()
 
 	// Auto-attack pulse.
 	GetWorldTimerManager().SetTimer(AttackTimer, this, &AParasitePawn::PerformAttack, AttackInterval, true, AttackInterval);
+
+	ApplyBodyColor();
+}
+
+void AParasitePawn::ApplyBodyColor()
+{
+	// The static mesh swaps between forms, so recreate the dynamic material.
+	BodyMID = BodyMesh->CreateDynamicMaterialInstance(0);
+	if (BodyMID)
+	{
+		const FLinearColor C = bIsPossessing ? HostColor : ParasiteColor;
+		BodyMID->SetVectorParameterValue(TEXT("Color"), C);
+		BodyMID->SetVectorParameterValue(TEXT("BaseColor"), C);
+	}
 }
 
 void AParasitePawn::Tick(float DeltaSeconds)
@@ -306,6 +328,7 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 		BodyMesh->SetRelativeScale3D(FVector(0.9f));
 	}
 	bIsPossessing = true;
+	ApplyBodyColor();
 
 	SetSelectedTarget(nullptr);
 	Host->Destroy();

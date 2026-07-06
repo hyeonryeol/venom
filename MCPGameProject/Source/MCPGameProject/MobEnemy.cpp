@@ -5,9 +5,18 @@
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
+#include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
+
+namespace
+{
+	const FLinearColor GoblinColor(0.12f, 0.55f, 0.15f);   // green
+	const FLinearColor HighlightColor(1.0f, 0.85f, 0.1f);  // yellow
+	const FLinearColor HitFlashColor(4.0f, 4.0f, 4.0f);    // bright white
+}
 
 AMobEnemy::AMobEnemy()
 {
@@ -30,9 +39,31 @@ AMobEnemy::AMobEnemy()
 	}
 }
 
+void AMobEnemy::BeginPlay()
+{
+	Super::BeginPlay();
+
+	BodyMID = BodyMesh->CreateDynamicMaterialInstance(0);
+	RefreshColor();
+}
+
+void AMobEnemy::RefreshColor()
+{
+	if (!BodyMID)
+	{
+		return;
+	}
+	const FLinearColor C = bHighlighted ? HighlightColor : GoblinColor;
+	// Cover common param names on the engine basic-shape material.
+	BodyMID->SetVectorParameterValue(TEXT("Color"), C);
+	BodyMID->SetVectorParameterValue(TEXT("BaseColor"), C);
+}
+
 void AMobEnemy::SetHighlighted(bool bInHighlighted)
 {
+	bHighlighted = bInHighlighted;
 	BodyMesh->SetRelativeScale3D(FVector(bInHighlighted ? HighlightScale : NormalScale));
+	RefreshColor();
 }
 
 void AMobEnemy::Tick(float DeltaSeconds)
@@ -107,6 +138,15 @@ void AMobEnemy::TakeHit(float DamageAmount)
 			Player->AddXP(XPReward);
 		}
 		Destroy();
+		return;
+	}
+
+	// Brief white flash for hit feedback.
+	if (BodyMID)
+	{
+		BodyMID->SetVectorParameterValue(TEXT("Color"), HitFlashColor);
+		BodyMID->SetVectorParameterValue(TEXT("BaseColor"), HitFlashColor);
+		GetWorldTimerManager().SetTimer(FlashTimer, this, &AMobEnemy::RefreshColor, 0.08f, false);
 	}
 }
 

@@ -14,6 +14,7 @@ class UFloatingPawnMovement;
 class UInputAction;
 class UInputMappingContext;
 class UStaticMesh;
+class UMaterialInstanceDynamic;
 class AMobEnemy;
 struct FInputActionValue;
 
@@ -139,6 +140,12 @@ protected:
 
 	UPROPERTY()
 	UStaticMesh* HostMesh;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* BodyMID;
+
+	// Tint the body for the current form (parasite vs host).
+	void ApplyBodyColor();
 
 	void MoveForward(const FInputActionValue& Value);
 	void MoveBackward(const FInputActionValue& Value);

@@ -8,6 +8,7 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
+class UMaterialInstanceDynamic;
 
 UCLASS()
 class MCPGAMEPROJECT_API AMobEnemy : public APawn
@@ -29,6 +30,17 @@ public:
 	void ApplyKnockback(const FVector& Impulse);
 
 protected:
+	virtual void BeginPlay() override;
+
+	// Re-applies the mob's colour based on current state (highlight/base).
+	void RefreshColor();
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* BodyMID;
+
+	bool bHighlighted = false;
+	FTimerHandle FlashTimer;
+
 	UPROPERTY(VisibleAnywhere, Category = "Mob")
 	USphereComponent* CollisionComp;
 
