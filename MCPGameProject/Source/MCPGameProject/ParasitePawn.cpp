@@ -327,7 +327,13 @@ void AParasitePawn::Tick(float DeltaSeconds)
 			BodyMesh->SetRelativeScale3D(FVector(Base * B, Base * B, Base * FlatZ * B));
 		}
 
-		// Writhing tendrils.
+		// Writhing tendrils that stream toward the movement direction.
+		FVector FlowVel = GetVelocity();
+		FlowVel.Z = 0.f;
+		const float FlowSpeed = FlowVel.Size();
+		const FVector MoveDir = (FlowSpeed > 1.f) ? (FlowVel / FlowSpeed) : FVector::ZeroVector;
+		const float Flow = FMath::Clamp(FlowSpeed / 600.f, 0.f, 1.f);
+
 		const int32 N = Tendrils.Num();
 		for (int32 i = 0; i < N; ++i)
 		{
@@ -341,8 +347,16 @@ void AParasitePawn::Tick(float DeltaSeconds)
 			const float Wy = 16.f * FMath::Sin(T * 3.f + Ph);
 			const float Wp = 20.f * FMath::Sin(T * 2.3f + Ph * 1.3f);
 			const FRotator R(Wp, Yaw + Wy, 0.f);
+			const FVector Dir = R.Vector();
+
+			// Front tendrils reach further; the whole mass leans into the motion.
+			const float Align = FVector::DotProduct(Dir, MoveDir);
+			const float Reach = 55.f + Flow * 45.f * Align;
+			const float Stretch = 1.f + FMath::Max(0.f, Align) * Flow * 0.9f;
+
 			Tn->SetRelativeRotation(R);
-			Tn->SetRelativeLocation(R.Vector() * 55.f);
+			Tn->SetRelativeLocation(Dir * Reach + MoveDir * (Flow * 30.f));
+			Tn->SetRelativeScale3D(FVector(1.2f * Stretch, 0.14f, 0.14f));
 		}
 	}
 	else
