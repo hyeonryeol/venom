@@ -67,6 +67,13 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Parasite")
 	UFloatingPawnMovement* Movement;
 
+	// Parasite form: the symbiote creature mesh (shown while a bare parasite).
+	UPROPERTY(VisibleAnywhere, Category = "Parasite")
+	USkeletalMeshComponent* SymbioteMesh;
+
+	UPROPERTY()
+	TArray<UMaterialInstanceDynamic*> SymbioteMIDs;
+
 	// Host form: the possessed goblin, symbiote-tinted (hidden while a parasite).
 	UPROPERTY(VisibleAnywhere, Category = "Parasite")
 	USkeletalMeshComponent* HostGoblinMesh;

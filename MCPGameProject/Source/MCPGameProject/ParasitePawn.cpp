@@ -56,6 +56,21 @@ AParasitePawn::AParasitePawn()
 		ParasiteMesh = SphereFinder.Object;
 		BodyMesh->SetStaticMesh(ParasiteMesh);
 	}
+	BodyMesh->SetVisibility(false); // replaced by the symbiote skeletal mesh
+
+	// Parasite form: the symbiote creature (its own skeleton, no anims — posed).
+	SymbioteMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SymbioteMesh"));
+	SymbioteMesh->SetupAttachment(RootComponent);
+	SymbioteMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SymbioteMesh->SetRelativeScale3D(FVector(1.0f));
+	SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+	SymbioteMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+	SymbioteMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> SymbioteMeshFinder(TEXT("/Game/baisegongshengti_battle.baisegongshengti_battle"));
+	if (SymbioteMeshFinder.Succeeded())
+	{
+		SymbioteMesh->SetSkeletalMeshAsset(SymbioteMeshFinder.Object);
+	}
 
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TintFinder(TEXT("/Game/Materials/M_VenomTint.M_VenomTint"));
@@ -188,14 +203,16 @@ void AParasitePawn::BeginPlay()
 
 	ApplyBodyColor();
 
-	if (SymbioteMaterial)
+	// Tint the symbiote creature black-glossy with the pulsing red rim.
+	SymbioteMIDs.Reset();
+	if (SymbioteMaterial && SymbioteMesh)
 	{
-		for (UStaticMeshComponent* T : Tendrils)
+		const int32 NumMats = SymbioteMesh->GetNumMaterials();
+		for (int32 i = 0; i < NumMats; ++i)
 		{
-			if (T)
-			{
-				T->SetMaterial(0, SymbioteMaterial);
-			}
+			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(SymbioteMaterial, this);
+			SymbioteMesh->SetMaterial(i, MID);
+			SymbioteMIDs.Add(MID);
 		}
 	}
 }
@@ -217,13 +234,9 @@ void AParasitePawn::ApplyBodyColor()
 
 void AParasitePawn::SetParasiteVisible(bool bVisible)
 {
-	BodyMesh->SetVisibility(bVisible);
-	for (UStaticMeshComponent* T : Tendrils)
+	if (SymbioteMesh)
 	{
-		if (T)
-		{
-			T->SetVisibility(bVisible);
-		}
+		SymbioteMesh->SetVisibility(bVisible);
 	}
 }
 
@@ -280,35 +293,24 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
 		/*YAxis=*/FVector(1.f, 0.f, 0.f), /*ZAxis=*/FVector(0.f, 1.f, 0.f), /*bDrawAxis=*/false);
 
-	// Parasite = crawling ooze: flat puddle that stretches along its motion and
-	// undulates, plus a pulsing red rim.
+	// Parasite: symbiote creature faces its movement and pulses its red rim.
 	if (!bIsPossessing)
 	{
 		const float T = GetWorld()->GetTimeSeconds();
-		if (BodyMID)
+		for (UMaterialInstanceDynamic* MID : SymbioteMIDs)
 		{
-			BodyMID->SetScalarParameterValue(TEXT("Pulse"), 0.55f + 0.45f * FMath::Sin(T * 4.f));
+			if (MID)
+			{
+				MID->SetScalarParameterValue(TEXT("Pulse"), 0.55f + 0.45f * FMath::Sin(T * 4.f));
+			}
 		}
-
-		const float Base = 0.8f;
-		const float FlatZ = 0.5f; // squashed onto the ground like slime
 
 		FVector Vel = GetVelocity();
 		Vel.Z = 0.f;
-		if (Vel.Size() > 15.f)
+		if (Vel.Size() > 20.f)
 		{
-			// Point the stretch axis along movement, undulate it (crawl).
-			BodyMesh->SetWorldRotation(Vel.Rotation());
-			const float Stretch = 0.18f + 0.14f * FMath::Sin(T * 9.f);
-			BodyMesh->SetRelativeScale3D(FVector(Base * (1.f + Stretch), Base * (1.f - 0.5f * Stretch), Base * FlatZ));
+			SetActorRotation(Vel.Rotation());
 		}
-		else
-		{
-			// Idle: a gently breathing blob.
-			const float B = 1.f + 0.06f * FMath::Sin(T * 3.f);
-			BodyMesh->SetRelativeScale3D(FVector(Base * B, Base * B, Base * FlatZ * B));
-		}
-
 	}
 	else
 	{
