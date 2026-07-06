@@ -131,7 +131,17 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float HostDamage = 25.f;
 
+	// Attacks hit within this half-angle of the facing direction (a wedge).
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float AttackHalfAngleDeg = 55.f;
+
 	FTimerHandle AttackTimer;
+
+	// Facing/aim direction (last movement direction).
+	FVector AimDirection = FVector(1.f, 0.f, 0.f);
+
+	bool bHostAttacking = false;
+	FTimerHandle HostAttackTimer;
 
 	// --- Progression ---
 	UPROPERTY()
@@ -196,6 +206,9 @@ protected:
 	UAnimSequence* HostIdleAnim;
 
 	UPROPERTY()
+	UAnimSequence* HostAttackAnim;
+
+	UPROPERTY()
 	TArray<UMaterialInstanceDynamic*> HostMIDs;
 
 	bool bHostWalking = false;
@@ -218,6 +231,7 @@ protected:
 	void SetSelectedTarget(AMobEnemy* NewTarget);
 
 	void PerformAttack();
+	void OnHostAttackDone();
 	void LevelUp();
 
 	void StartAugmentChoice();

@@ -94,6 +94,11 @@ AParasitePawn::AParasitePawn()
 	{
 		HostIdleAnim = HostIdleFinder.Object;
 	}
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> HostAttackFinder(TEXT("/Game/Goblin_low_for_bake_Anim_Anim_Full_Attack_One_Handed.Goblin_low_for_bake_Anim_Anim_Full_Attack_One_Handed"));
+	if (HostAttackFinder.Succeeded())
+	{
+		HostAttackAnim = HostAttackFinder.Object;
+	}
 
 	// Top-down camera boom
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -236,6 +241,16 @@ void AParasitePawn::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
+	// Remember where we're heading — that's where attacks fire.
+	{
+		FVector Vel = GetVelocity();
+		Vel.Z = 0.f;
+		if (Vel.SizeSquared() > 400.f)
+		{
+			AimDirection = Vel.GetSafeNormal();
+		}
+	}
+
 	// Possession-range indicator: a flat red ring around the parasite.
 	DrawDebugCircle(GetWorld(), GetActorLocation(), PossessRange, 48, FColor::Red,
 		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
@@ -289,7 +304,7 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		{
 			SetActorRotation(Vel.Rotation());
 		}
-		if (bWantWalk != bHostWalking)
+		if (!bHostAttacking && bWantWalk != bHostWalking)
 		{
 			bHostWalking = bWantWalk;
 			UAnimSequence* Anim = bWantWalk ? HostWalkAnim : HostIdleAnim;
@@ -524,13 +539,23 @@ void AParasitePawn::PerformAttack()
 	const float Knockback = bHost ? 0.f : ParasiteKnockback;
 
 	const FVector MyLoc = GetActorLocation();
+	FVector Aim = AimDirection;
+	Aim.Z = 0.f;
+	Aim = Aim.GetSafeNormal();
+	const float CosThreshold = FMath::Cos(FMath::DegreesToRadians(AttackHalfAngleDeg));
 
-	// Gather first, then apply (damage can destroy mobs).
+	// Gather targets inside the forward wedge (then apply — damage can destroy mobs).
 	TArray<AMobEnemy*> Targets;
 	for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
 	{
 		AMobEnemy* Mob = *It;
-		if (FVector::DistSquared2D(Mob->GetActorLocation(), MyLoc) <= Range * Range)
+		FVector ToMob = Mob->GetActorLocation() - MyLoc;
+		ToMob.Z = 0.f;
+		if (ToMob.SizeSquared() > Range * Range)
+		{
+			continue;
+		}
+		if (FVector::DotProduct(ToMob.GetSafeNormal(), Aim) >= CosThreshold)
 		{
 			Targets.Add(Mob);
 		}
@@ -550,9 +575,40 @@ void AParasitePawn::PerformAttack()
 		}
 	}
 
-	// Brief attack-range flash for feedback.
-	DrawDebugCircle(GetWorld(), MyLoc, Range, 32, bHost ? FColor::Orange : FColor::White,
-		false, AttackInterval * 0.5f, 0, 3.f, FVector(1.f, 0.f, 0.f), FVector(0.f, 1.f, 0.f), false);
+	// Host swings its weapon when it actually connects.
+	if (bHost && Targets.Num() > 0 && HostAttackAnim && !bHostAttacking)
+	{
+		bHostAttacking = true;
+		HostGoblinMesh->PlayAnimation(HostAttackAnim, false);
+		GetWorldTimerManager().SetTimer(HostAttackTimer, this,
+			&AParasitePawn::OnHostAttackDone, HostAttackAnim->GetPlayLength(), false);
+	}
+
+	// Feedback: draw the attack wedge.
+	const FVector L = MyLoc + FVector(0.f, 0.f, 10.f);
+	const FVector EdgeA = Aim.RotateAngleAxis(AttackHalfAngleDeg, FVector::UpVector);
+	const FVector EdgeB = Aim.RotateAngleAxis(-AttackHalfAngleDeg, FVector::UpVector);
+	const FColor C = bHost ? FColor::Orange : FColor::White;
+	DrawDebugLine(GetWorld(), L, L + EdgeA * Range, C, false, AttackInterval * 0.5f, 0, 3.f);
+	DrawDebugLine(GetWorld(), L, L + EdgeB * Range, C, false, AttackInterval * 0.5f, 0, 3.f);
+	DrawDebugLine(GetWorld(), L, L + Aim * Range, C, false, AttackInterval * 0.5f, 0, 2.f);
+}
+
+void AParasitePawn::OnHostAttackDone()
+{
+	bHostAttacking = false;
+	if (!bIsPossessing)
+	{
+		return;
+	}
+	FVector Vel = GetVelocity();
+	Vel.Z = 0.f;
+	bHostWalking = Vel.Size() > 20.f;
+	UAnimSequence* Anim = bHostWalking ? HostWalkAnim : HostIdleAnim;
+	if (Anim)
+	{
+		HostGoblinMesh->PlayAnimation(Anim, true);
+	}
 }
 
 void AParasitePawn::AddXP(float Amount)
