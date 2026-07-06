@@ -100,11 +100,11 @@ AParasitePawn::AParasitePawn()
 		HostAttackAnim = HostAttackFinder.Object;
 	}
 
-	// Top-down camera boom
+	// Follow camera boom (rotates to face the player's aim in Tick).
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
-	SpringArm->TargetArmLength = 1200.f;
-	SpringArm->SetRelativeRotation(FRotator(-65.f, 0.f, 0.f));
+	SpringArm->TargetArmLength = 750.f;
+	SpringArm->SetRelativeRotation(FRotator(-50.f, 0.f, 0.f));
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritYaw = false;
 	SpringArm->bInheritRoll = false;
@@ -249,6 +249,13 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		{
 			AimDirection = Vel.GetSafeNormal();
 		}
+	}
+
+	// Camera trails behind the facing direction (smoothly).
+	if (SpringArm)
+	{
+		const FRotator Target(-50.f, AimDirection.Rotation().Yaw, 0.f);
+		SpringArm->SetWorldRotation(FMath::RInterpTo(SpringArm->GetComponentRotation(), Target, DeltaSeconds, 5.f));
 	}
 
 	// Possession-range indicator: a flat red ring around the parasite.
