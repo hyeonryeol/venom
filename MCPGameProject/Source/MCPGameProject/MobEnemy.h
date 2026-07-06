@@ -1,4 +1,4 @@
-// venom — Basic enemy mob (the goblin). Chases the player; a possession host.
+// venom — Enemy goblin mob. Chases the player; a possession host.
 
 #pragma once
 
@@ -7,9 +7,8 @@
 #include "MobEnemy.generated.h"
 
 class USphereComponent;
-class UStaticMeshComponent;
-class UMaterialInterface;
-class UMaterialInstanceDynamic;
+class USkeletalMeshComponent;
+class UAnimSequence;
 
 UCLASS()
 class MCPGAMEPROJECT_API AMobEnemy : public APawn
@@ -36,33 +35,42 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	// Re-applies the mob's colour based on current state (highlight/base).
-	void RefreshColor();
+	void PlayLoop(UAnimSequence* Anim);
+	void OnAttackAnimDone();
+	void Die();
 
 	UPROPERTY()
-	UMaterialInterface* TintMaterial;
-
-	UPROPERTY()
-	UMaterialInstanceDynamic* BodyMID;
-
-	bool bHighlighted = false;
-	FTimerHandle FlashTimer;
-
-	UPROPERTY(VisibleAnywhere, Category = "Mob")
 	USphereComponent* CollisionComp;
 
-	UPROPERTY(VisibleAnywhere, Category = "Mob")
-	UStaticMeshComponent* BodyMesh;
+	UPROPERTY()
+	USkeletalMeshComponent* BodyMesh;
+
+	UPROPERTY()
+	UAnimSequence* WalkAnim;
+
+	UPROPERTY()
+	UAnimSequence* AttackAnim;
+
+	UPROPERTY()
+	UAnimSequence* DeathAnim;
+
+	// Transform of the mesh relative to the collision sphere (tunable).
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float MeshScale = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float MeshZOffset = -90.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float MeshYaw = -90.f;
 
 	// Slower than the player (600) so the parasite can be kited.
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float MoveSpeed = 250.f;
 
-	// Mobs within this distance push each other apart so they don't stack.
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float SeparationRadius = 110.f;
 
-	// How strongly separation competes with the chase direction.
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float SeparationWeight = 1.5f;
 
@@ -92,6 +100,8 @@ protected:
 
 	FVector KnockbackVelocity = FVector::ZeroVector;
 
-	static constexpr float NormalScale = 0.9f;
-	static constexpr float HighlightScale = 1.3f;
+	bool bDying = false;
+	bool bAttacking = false;
+	FTimerHandle AttackAnimTimer;
+	FTimerHandle DeathTimer;
 };

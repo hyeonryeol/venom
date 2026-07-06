@@ -1,22 +1,16 @@
-// venom — Basic enemy mob. Chases the player. Future host for possession.
+// venom — Enemy goblin mob. Chases the player; a possession host.
 
 #include "MobEnemy.h"
 #include "ParasitePawn.h"
 
 #include "Components/SphereComponent.h"
-#include "Components/StaticMeshComponent.h"
-#include "Materials/MaterialInstanceDynamic.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimSequence.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
-
-namespace
-{
-	const FLinearColor GoblinColor(0.12f, 0.55f, 0.15f);   // green
-	const FLinearColor HighlightColor(1.0f, 0.85f, 0.1f);  // yellow
-	const FLinearColor HitFlashColor(4.0f, 4.0f, 4.0f);    // bright white
-}
 
 AMobEnemy::AMobEnemy()
 {
@@ -24,25 +18,38 @@ AMobEnemy::AMobEnemy()
 
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComp"));
 	CollisionComp->InitSphereRadius(45.f);
-	// Overlap the player (for future possession) but don't block movement.
+	// Overlap the player (for possession) but don't block movement.
 	CollisionComp->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	RootComponent = CollisionComp;
 
-	BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
+	BodyMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("BodyMesh"));
 	BodyMesh->SetupAttachment(RootComponent);
 	BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	BodyMesh->SetRelativeScale3D(FVector(NormalScale));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
-	UStaticMesh* CubeMesh = CubeFinder.Succeeded() ? CubeFinder.Object : nullptr;
-	if (CubeMesh)
+	BodyMesh->SetRelativeScale3D(FVector(MeshScale));
+	BodyMesh->SetRelativeLocation(FVector(0.f, 0.f, MeshZOffset));
+	BodyMesh->SetRelativeRotation(FRotator(0.f, MeshYaw, 0.f));
+	BodyMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MeshFinder(TEXT("/Game/Goblin_low_for_bake.Goblin_low_for_bake"));
+	if (MeshFinder.Succeeded())
 	{
-		BodyMesh->SetStaticMesh(CubeMesh);
+		BodyMesh->SetSkeletalMeshAsset(MeshFinder.Object);
 	}
 
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TintFinder(TEXT("/Game/Materials/M_VenomTint.M_VenomTint"));
-	if (TintFinder.Succeeded())
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> WalkFinder(TEXT("/Game/Goblin_low_for_bake_Anim_Anim_Full_Walk.Goblin_low_for_bake_Anim_Anim_Full_Walk"));
+	if (WalkFinder.Succeeded())
 	{
-		TintMaterial = TintFinder.Object;
+		WalkAnim = WalkFinder.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> AttackFinder(TEXT("/Game/Goblin_low_for_bake_Anim_Anim_Full_Attack_One_Handed.Goblin_low_for_bake_Anim_Anim_Full_Attack_One_Handed"));
+	if (AttackFinder.Succeeded())
+	{
+		AttackAnim = AttackFinder.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> DeathFinder(TEXT("/Game/Goblin_low_for_bake_Anim_Anim_Full_Death.Goblin_low_for_bake_Anim_Anim_Full_Death"));
+	if (DeathFinder.Succeeded())
+	{
+		DeathAnim = DeathFinder.Object;
 	}
 }
 
@@ -51,37 +58,33 @@ void AMobEnemy::BeginPlay()
 	Super::BeginPlay();
 
 	Health = MaxHealth;
-
-	if (TintMaterial)
-	{
-		BodyMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
-		BodyMesh->SetMaterial(0, BodyMID);
-	}
-	RefreshColor();
+	PlayLoop(WalkAnim);
 }
 
-void AMobEnemy::RefreshColor()
+void AMobEnemy::PlayLoop(UAnimSequence* Anim)
 {
-	if (!BodyMID)
+	if (Anim && BodyMesh)
 	{
-		return;
+		BodyMesh->PlayAnimation(Anim, true);
 	}
-	const FLinearColor C = bHighlighted ? HighlightColor : GoblinColor;
-	// Cover common param names on the engine basic-shape material.
-	BodyMID->SetVectorParameterValue(TEXT("Color"), C);
-	BodyMID->SetVectorParameterValue(TEXT("BaseColor"), C);
 }
 
 void AMobEnemy::SetHighlighted(bool bInHighlighted)
 {
-	bHighlighted = bInHighlighted;
-	BodyMesh->SetRelativeScale3D(FVector(bInHighlighted ? HighlightScale : NormalScale));
-	RefreshColor();
+	if (BodyMesh)
+	{
+		BodyMesh->SetRelativeScale3D(FVector(MeshScale * (bInHighlighted ? 1.25f : 1.0f)));
+	}
 }
 
 void AMobEnemy::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	if (bDying)
+	{
+		return;
+	}
 
 	APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 	if (!Player)
@@ -106,13 +109,11 @@ void AMobEnemy::Tick(float DeltaSeconds)
 		{
 			continue;
 		}
-
 		FVector Away = MyLoc - Other->GetActorLocation();
 		Away.Z = 0.f;
 		const float DistSq = Away.SizeSquared();
 		if (DistSq > KINDA_SMALL_NUMBER && DistSq < SepRadiusSq)
 		{
-			// Closer neighbours push harder.
 			const float Dist = FMath::Sqrt(DistSq);
 			Separation += (Away / Dist) * (1.f - Dist / SeparationRadius);
 		}
@@ -126,7 +127,6 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	{
 		Delta += Desired.GetSafeNormal() * MoveSpeed * DeltaSeconds;
 	}
-	// Knockback rides on top of the chase movement, then bleeds off.
 	Delta += KnockbackVelocity * DeltaSeconds;
 	if (!Delta.IsNearlyZero())
 	{
@@ -134,7 +134,6 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	}
 	KnockbackVelocity = FMath::VInterpTo(KnockbackVelocity, FVector::ZeroVector, DeltaSeconds, KnockbackDecay);
 
-	// Always face the player regardless of the separation/knockback nudge.
 	if (!ChaseDir.IsNearlyZero())
 	{
 		SetActorRotation(ChaseDir.Rotation());
@@ -143,38 +142,75 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	// Contact attack: bite the player on a cooldown while touching.
 	if (AParasitePawn* Parasite = Cast<AParasitePawn>(Player))
 	{
-		if (FVector::Dist2D(Player->GetActorLocation(), GetActorLocation()) <= ContactRange)
+		if (FVector::Dist2D(Player->GetActorLocation(), MyLoc) <= ContactRange)
 		{
 			const float Now = GetWorld()->GetTimeSeconds();
 			if (Now - LastAttackTime >= AttackCooldown)
 			{
 				LastAttackTime = Now;
 				Parasite->ReceiveContactDamage(ContactDamage);
+
+				// Swing animation (once), then back to walking.
+				if (AttackAnim && BodyMesh && !bAttacking)
+				{
+					bAttacking = true;
+					BodyMesh->PlayAnimation(AttackAnim, false);
+					GetWorldTimerManager().SetTimer(AttackAnimTimer, this,
+						&AMobEnemy::OnAttackAnimDone, AttackAnim->GetPlayLength(), false);
+				}
 			}
 		}
 	}
 }
 
+void AMobEnemy::OnAttackAnimDone()
+{
+	bAttacking = false;
+	if (!bDying)
+	{
+		PlayLoop(WalkAnim);
+	}
+}
+
 void AMobEnemy::TakeHit(float DamageAmount)
 {
+	if (bDying)
+	{
+		return;
+	}
 	Health -= DamageAmount;
 	if (Health <= 0.f)
 	{
-		if (AParasitePawn* Player = Cast<AParasitePawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
-		{
-			Player->AddXP(XPReward);
-		}
-		Destroy();
+		Die();
+	}
+}
+
+void AMobEnemy::Die()
+{
+	if (bDying)
+	{
 		return;
 	}
+	bDying = true;
 
-	// Brief white flash for hit feedback.
-	if (BodyMID)
+	if (AParasitePawn* Player = Cast<AParasitePawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
 	{
-		BodyMID->SetVectorParameterValue(TEXT("Color"), HitFlashColor);
-		BodyMID->SetVectorParameterValue(TEXT("BaseColor"), HitFlashColor);
-		GetWorldTimerManager().SetTimer(FlashTimer, this, &AMobEnemy::RefreshColor, 0.08f, false);
+		Player->AddXP(XPReward);
 	}
+
+	float DeathLen = 1.f;
+	if (DeathAnim && BodyMesh)
+	{
+		BodyMesh->PlayAnimation(DeathAnim, false);
+		DeathLen = DeathAnim->GetPlayLength();
+	}
+
+	// Remove after the death animation plays out.
+	FTimerHandle& Handle = DeathTimer;
+	GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(this, [this]()
+	{
+		Destroy();
+	}), DeathLen, false);
 }
 
 void AMobEnemy::ApplyKnockback(const FVector& Impulse)
