@@ -57,6 +57,25 @@ AParasitePawn::AParasitePawn()
 		BodyMesh->SetStaticMesh(ParasiteMesh);
 	}
 
+	// Goo tendrils: elongated blobs splaying out from the core (animated in Tick).
+	const int32 TendrilCount = 8;
+	for (int32 i = 0; i < TendrilCount; ++i)
+	{
+		UStaticMeshComponent* T = CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("Tendril%d"), i));
+		T->SetupAttachment(RootComponent);
+		T->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		T->SetCastShadow(false);
+		if (ParasiteMesh)
+		{
+			T->SetStaticMesh(ParasiteMesh);
+		}
+		const float Yaw = (360.f / TendrilCount) * i;
+		T->SetRelativeRotation(FRotator(0.f, Yaw, 0.f));
+		T->SetRelativeScale3D(FVector(1.2f, 0.14f, 0.14f));
+		T->SetRelativeLocation(FRotator(0.f, Yaw, 0.f).Vector() * 55.f);
+		Tendrils.Add(T);
+	}
+
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TintFinder(TEXT("/Game/Materials/M_VenomTint.M_VenomTint"));
 	if (TintFinder.Succeeded())
 	{
@@ -186,6 +205,17 @@ void AParasitePawn::BeginPlay()
 	Health = ParasiteMaxHP;
 
 	ApplyBodyColor();
+
+	if (SymbioteMaterial)
+	{
+		for (UStaticMeshComponent* T : Tendrils)
+		{
+			if (T)
+			{
+				T->SetMaterial(0, SymbioteMaterial);
+			}
+		}
+	}
 }
 
 void AParasitePawn::ApplyBodyColor()
@@ -203,9 +233,21 @@ void AParasitePawn::ApplyBodyColor()
 	}
 }
 
+void AParasitePawn::SetParasiteVisible(bool bVisible)
+{
+	BodyMesh->SetVisibility(bVisible);
+	for (UStaticMeshComponent* T : Tendrils)
+	{
+		if (T)
+		{
+			T->SetVisibility(bVisible);
+		}
+	}
+}
+
 void AParasitePawn::EnterHostForm()
 {
-	BodyMesh->SetVisibility(false);
+	SetParasiteVisible(false);
 	HostGoblinMesh->SetVisibility(true);
 
 	// Symbiote-tint every material slot of the possessed goblin.
@@ -232,7 +274,7 @@ void AParasitePawn::ExitHostForm()
 {
 	HostGoblinMesh->SetVisibility(false);
 	HostMIDs.Reset();
-	BodyMesh->SetVisibility(true);
+	SetParasiteVisible(true);
 	SetActorRotation(FRotator::ZeroRotator);
 	ApplyBodyColor();
 }
@@ -283,6 +325,24 @@ void AParasitePawn::Tick(float DeltaSeconds)
 			// Idle: a gently breathing blob.
 			const float B = 1.f + 0.06f * FMath::Sin(T * 3.f);
 			BodyMesh->SetRelativeScale3D(FVector(Base * B, Base * B, Base * FlatZ * B));
+		}
+
+		// Writhing tendrils.
+		const int32 N = Tendrils.Num();
+		for (int32 i = 0; i < N; ++i)
+		{
+			UStaticMeshComponent* Tn = Tendrils[i];
+			if (!Tn)
+			{
+				continue;
+			}
+			const float Yaw = (360.f / N) * i;
+			const float Ph = i * 0.8f;
+			const float Wy = 16.f * FMath::Sin(T * 3.f + Ph);
+			const float Wp = 20.f * FMath::Sin(T * 2.3f + Ph * 1.3f);
+			const FRotator R(Wp, Yaw + Wy, 0.f);
+			Tn->SetRelativeRotation(R);
+			Tn->SetRelativeLocation(R.Vector() * 55.f);
 		}
 	}
 	else

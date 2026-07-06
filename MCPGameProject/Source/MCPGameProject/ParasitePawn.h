@@ -201,6 +201,12 @@ protected:
 	UPROPERTY()
 	UMaterialInstanceDynamic* BodyMID;
 
+	// Parasite form: writhing goo tendrils around the core.
+	UPROPERTY()
+	TArray<UStaticMeshComponent*> Tendrils;
+
+	void SetParasiteVisible(bool bVisible);
+
 	// Host goblin animations + its symbiote-tinted material instances.
 	UPROPERTY()
 	UAnimSequence* HostWalkAnim;
