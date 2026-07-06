@@ -178,6 +178,10 @@ protected:
 	UPROPERTY()
 	UMaterialInterface* TintMaterial;
 
+	// Black glossy symbiote look for the parasite form (pulsing red rim).
+	UPROPERTY()
+	UMaterialInterface* SymbioteMaterial;
+
 	UPROPERTY()
 	UMaterialInstanceDynamic* BodyMID;
 

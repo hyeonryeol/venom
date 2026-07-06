@@ -69,6 +69,12 @@ AParasitePawn::AParasitePawn()
 		TintMaterial = TintFinder.Object;
 	}
 
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> SymbioteFinder(TEXT("/Game/Materials/M_Symbiote.M_Symbiote"));
+	if (SymbioteFinder.Succeeded())
+	{
+		SymbioteMaterial = SymbioteFinder.Object;
+	}
+
 	// Top-down camera boom
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
@@ -159,13 +165,30 @@ void AParasitePawn::BeginPlay()
 
 void AParasitePawn::ApplyBodyColor()
 {
-	if (!TintMaterial)
+	if (bIsPossessing)
 	{
-		return;
+		// Host form: cyan tint (distinct from enemy goblins).
+		if (TintMaterial)
+		{
+			BodyMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
+			BodyMesh->SetMaterial(0, BodyMID);
+			BodyMID->SetVectorParameterValue(TEXT("Color"), HostColor);
+		}
 	}
-	BodyMID = UMaterialInstanceDynamic::Create(TintMaterial, this);
-	BodyMesh->SetMaterial(0, BodyMID);
-	BodyMID->SetVectorParameterValue(TEXT("Color"), bIsPossessing ? HostColor : ParasiteColor);
+	else
+	{
+		// Parasite form: black glossy symbiote with a pulsing red rim.
+		UMaterialInterface* Base = SymbioteMaterial ? SymbioteMaterial : TintMaterial;
+		if (Base)
+		{
+			BodyMID = UMaterialInstanceDynamic::Create(Base, this);
+			BodyMesh->SetMaterial(0, BodyMID);
+			if (!SymbioteMaterial)
+			{
+				BodyMID->SetVectorParameterValue(TEXT("Color"), ParasiteColor);
+			}
+		}
+	}
 }
 
 void AParasitePawn::Tick(float DeltaSeconds)
@@ -176,6 +199,17 @@ void AParasitePawn::Tick(float DeltaSeconds)
 	DrawDebugCircle(GetWorld(), GetActorLocation(), PossessRange, 48, FColor::Red,
 		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
 		/*YAxis=*/FVector(1.f, 0.f, 0.f), /*ZAxis=*/FVector(0.f, 1.f, 0.f), /*bDrawAxis=*/false);
+
+	// Symbiote "alive" feel while a bare parasite: pulse the rim + breathe.
+	if (!bIsPossessing)
+	{
+		const float T = GetWorld()->GetTimeSeconds();
+		if (BodyMID)
+		{
+			BodyMID->SetScalarParameterValue(TEXT("Pulse"), 0.55f + 0.45f * FMath::Sin(T * 4.f));
+		}
+		BodyMesh->SetRelativeScale3D(FVector(0.8f * (1.f + 0.06f * FMath::Sin(T * 3.f))));
+	}
 
 	// Drop the selection if the target has drifted out of range.
 	if (SelectedTarget && FVector::Dist2D(SelectedTarget->GetActorLocation(), GetActorLocation()) > PossessRange)
