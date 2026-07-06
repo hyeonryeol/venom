@@ -69,6 +69,18 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float XPReward = 1.f;
 
+	// Contact attack on the player.
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float ContactDamage = 7.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float ContactRange = 110.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mob")
+	float AttackCooldown = 0.7f;
+
+	float LastAttackTime = -100.f;
+
 	// How fast a knockback impulse bleeds off (higher = snappier).
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float KnockbackDecay = 5.f;

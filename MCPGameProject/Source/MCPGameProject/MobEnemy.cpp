@@ -136,6 +136,20 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	{
 		SetActorRotation(ChaseDir.Rotation());
 	}
+
+	// Contact attack: bite the player on a cooldown while touching.
+	if (AParasitePawn* Parasite = Cast<AParasitePawn>(Player))
+	{
+		if (FVector::Dist2D(Player->GetActorLocation(), GetActorLocation()) <= ContactRange)
+		{
+			const float Now = GetWorld()->GetTimeSeconds();
+			if (Now - LastAttackTime >= AttackCooldown)
+			{
+				LastAttackTime = Now;
+				Parasite->ReceiveContactDamage(ContactDamage);
+			}
+		}
+	}
 }
 
 void AMobEnemy::TakeHit(float DamageAmount)

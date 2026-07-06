@@ -37,6 +37,9 @@ public:
 	/** Award experience; may trigger one or more level-ups. */
 	void AddXP(float Amount);
 
+	/** Damage from a mob touching us. Ejects (if hosting) or ends the game. */
+	void ReceiveContactDamage(float Amount);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -131,9 +134,29 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* Augment3Action; // 3
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* RestartAction; // R (on game over)
+
 	bool bChoosingAugment = false;
 	int32 PendingLevelUps = 0;
 	TArray<int32> CurrentAugmentOptions;
+
+	// --- Health / life ---
+	UPROPERTY(EditAnywhere, Category = "Health")
+	float HostMaxHP = 100.f;
+
+	UPROPERTY(EditAnywhere, Category = "Health")
+	float ParasiteMaxHP = 30.f;
+
+	// Grace window right after being ejected.
+	UPROPERTY(EditAnywhere, Category = "Health")
+	float EjectInvulnTime = 1.5f;
+
+	float MaxHealth = 30.f;
+	float Health = 30.f;
+	bool bInvulnerable = false;
+	bool bDead = false;
+	FTimerHandle InvulnTimer;
 
 	// Form meshes (parasite sphere <-> host cube), resolved in the constructor.
 	UPROPERTY()
@@ -172,4 +195,9 @@ protected:
 	void OnAugment1(const FInputActionValue& Value);
 	void OnAugment2(const FInputActionValue& Value);
 	void OnAugment3(const FInputActionValue& Value);
+
+	void EjectFromHost();
+	void EndInvuln();
+	void GameOver();
+	void OnRestart(const FInputActionValue& Value);
 };

@@ -113,6 +113,8 @@ AParasitePawn::AParasitePawn()
 	Augment2Action->ValueType = EInputActionValueType::Boolean;
 	Augment3Action = CreateDefaultSubobject<UInputAction>(TEXT("Augment3Action"));
 	Augment3Action->ValueType = EInputActionValueType::Boolean;
+	RestartAction = CreateDefaultSubobject<UInputAction>(TEXT("RestartAction"));
+	RestartAction->ValueType = EInputActionValueType::Boolean;
 
 	InputMapping->MapKey(MoveForwardAction, EKeys::W);
 	InputMapping->MapKey(MoveBackwardAction, EKeys::S);
@@ -123,6 +125,7 @@ AParasitePawn::AParasitePawn()
 	InputMapping->MapKey(Augment1Action, EKeys::One);
 	InputMapping->MapKey(Augment2Action, EKeys::Two);
 	InputMapping->MapKey(Augment3Action, EKeys::Three);
+	InputMapping->MapKey(RestartAction, EKeys::R);
 
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
@@ -146,6 +149,10 @@ void AParasitePawn::BeginPlay()
 
 	// Auto-attack pulse.
 	GetWorldTimerManager().SetTimer(AttackTimer, this, &AParasitePawn::PerformAttack, AttackInterval, true, AttackInterval);
+
+	// Start bare and fragile — you must grab a host fast.
+	MaxHealth = ParasiteMaxHP;
+	Health = ParasiteMaxHP;
 
 	ApplyBodyColor();
 }
@@ -178,9 +185,11 @@ void AParasitePawn::Tick(float DeltaSeconds)
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::White,
-			FString::Printf(TEXT("Lv %d    XP %.0f/%.0f    [%s]"),
-				Level, XP, XPToNext, bIsPossessing ? TEXT("GOBLIN") : TEXT("parasite")));
+		GEngine->AddOnScreenDebugMessage(4, 0.f, bInvulnerable ? FColor::Cyan : FColor::White,
+			FString::Printf(TEXT("HP %.0f/%.0f    Lv %d    XP %.0f/%.0f    [%s]%s"),
+				FMath::Max(0.f, Health), MaxHealth, Level, XP, XPToNext,
+				bIsPossessing ? TEXT("GOBLIN") : TEXT("parasite"),
+				bInvulnerable ? TEXT("  (invuln)") : TEXT("")));
 	}
 
 	// Augment picker overlay.
@@ -213,6 +222,7 @@ void AParasitePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		EIC->BindAction(Augment1Action, ETriggerEvent::Started, this, &AParasitePawn::OnAugment1);
 		EIC->BindAction(Augment2Action, ETriggerEvent::Started, this, &AParasitePawn::OnAugment2);
 		EIC->BindAction(Augment3Action, ETriggerEvent::Started, this, &AParasitePawn::OnAugment3);
+		EIC->BindAction(RestartAction, ETriggerEvent::Started, this, &AParasitePawn::OnRestart);
 	}
 }
 
@@ -334,6 +344,10 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	}
 	bIsPossessing = true;
 	ApplyBodyColor();
+
+	// Fresh host body: full host HP.
+	MaxHealth = HostMaxHP;
+	Health = HostMaxHP;
 
 	SetSelectedTarget(nullptr);
 	Host->Destroy();
@@ -518,3 +532,79 @@ FString AParasitePawn::AugmentName(int32 AugmentId) const
 void AParasitePawn::OnAugment1(const FInputActionValue& Value) { ChooseAugment(0); }
 void AParasitePawn::OnAugment2(const FInputActionValue& Value) { ChooseAugment(1); }
 void AParasitePawn::OnAugment3(const FInputActionValue& Value) { ChooseAugment(2); }
+
+void AParasitePawn::ReceiveContactDamage(float Amount)
+{
+	if (bDead || bInvulnerable)
+	{
+		return;
+	}
+
+	Health -= Amount;
+	if (Health <= 0.f)
+	{
+		if (bIsPossessing)
+		{
+			EjectFromHost();
+		}
+		else
+		{
+			GameOver();
+		}
+	}
+}
+
+void AParasitePawn::EjectFromHost()
+{
+	// Lose the body, burst back out as the bare parasite.
+	bIsPossessing = false;
+	if (ParasiteMesh)
+	{
+		BodyMesh->SetStaticMesh(ParasiteMesh);
+		BodyMesh->SetRelativeScale3D(FVector(0.8f));
+	}
+	ApplyBodyColor();
+
+	MaxHealth = ParasiteMaxHP;
+	Health = ParasiteMaxHP;
+
+	// Brief grace so you aren't instantly re-killed.
+	bInvulnerable = true;
+	GetWorldTimerManager().SetTimer(InvulnTimer, this, &AParasitePawn::EndInvuln, EjectInvulnTime, false);
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(2, 2.5f, FColor::Red, TEXT("Host destroyed! Exposed - grab a new host!"));
+	}
+}
+
+void AParasitePawn::EndInvuln()
+{
+	bInvulnerable = false;
+}
+
+void AParasitePawn::GameOver()
+{
+	if (bDead)
+	{
+		return;
+	}
+	bDead = true;
+	Health = 0.f;
+	UGameplayStatics::SetGamePaused(this, true);
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(20, 999.f, FColor::Red, TEXT("=== GAME OVER ===   press R to restart"));
+	}
+}
+
+void AParasitePawn::OnRestart(const FInputActionValue& Value)
+{
+	if (!bDead)
+	{
+		return;
+	}
+	UGameplayStatics::SetGamePaused(this, false);
+	UGameplayStatics::OpenLevel(this, FName(*UGameplayStatics::GetCurrentLevelName(this, true)));
+}
