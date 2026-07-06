@@ -254,7 +254,7 @@ void AParasitePawn::Tick(float DeltaSeconds)
 	// Camera trails behind the facing direction (smoothly).
 	if (SpringArm)
 	{
-		const FRotator Target(-50.f, AimDirection.Rotation().Yaw, 0.f);
+		const FRotator Target(-50.f, AimDirection.Rotation().Yaw + 180.f, 0.f);
 		SpringArm->SetWorldRotation(FMath::RInterpTo(SpringArm->GetComponentRotation(), Target, DeltaSeconds, 5.f));
 	}
 
