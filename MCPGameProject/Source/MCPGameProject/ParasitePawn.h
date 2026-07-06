@@ -88,7 +88,7 @@ protected:
 
 	// Cooldown between possessions (stops host-hopping to refill HP).
 	UPROPERTY(EditAnywhere, Category = "Possession")
-	float PossessCooldown = 4.f;
+	float PossessCooldown = 10.f;
 
 	bool bPossessReady = true;
 	FTimerHandle PossessCDTimer;
