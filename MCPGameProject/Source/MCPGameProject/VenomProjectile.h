@@ -48,6 +48,7 @@ protected:
 
 	float Damage = 10.f;
 	bool bDamagesMobs = false;
+	bool bConsumed = false;
 	int32 PierceRemaining = 0;
 
 	UPROPERTY()

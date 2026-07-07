@@ -79,8 +79,8 @@ void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDam
 void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	// Already spent (Destroy queued this frame) — ignore further overlaps.
-	if (IsActorBeingDestroyed())
+	// Already spent this frame — ignore any further queued overlaps.
+	if (bConsumed)
 	{
 		return;
 	}
@@ -107,6 +107,8 @@ void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 			}
 			else
 			{
+				bConsumed = true;
+				CollisionComp->SetGenerateOverlapEvents(false);
 				if (Mesh)
 				{
 					Mesh->SetVisibility(false);
@@ -121,6 +123,7 @@ void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		if (AParasitePawn* Player = Cast<AParasitePawn>(OtherActor))
 		{
 			Player->ReceiveContactDamage(Damage);
+			bConsumed = true;
 			Destroy();
 		}
 	}
