@@ -80,9 +80,12 @@ void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 {
 	if (bDamagesMobs)
 	{
-		// Player's shot: hurt mobs, pass through the player.
+		// Player's shot: hurt mobs (with a slight knockback), pass through player.
 		if (AMobEnemy* Mob = Cast<AMobEnemy>(OtherActor))
 		{
+			FVector Push = Movement ? Movement->Velocity.GetSafeNormal() : GetActorForwardVector();
+			Push.Z = 0.f;
+			Mob->ApplyKnockback(Push.GetSafeNormal() * 350.f);
 			Mob->TakeHit(Damage);
 			Destroy();
 		}
