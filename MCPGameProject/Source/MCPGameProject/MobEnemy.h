@@ -9,6 +9,9 @@
 class USphereComponent;
 class USkeletalMeshComponent;
 class UAnimSequence;
+class USoundBase;
+class UMaterialInterface;
+class UMaterialInstanceDynamic;
 
 UCLASS()
 class MCPGAMEPROJECT_API AMobEnemy : public APawn
@@ -38,6 +41,7 @@ protected:
 	void PlayLoop(UAnimSequence* Anim);
 	void OnAttackAnimDone();
 	void Die();
+	void ClearHitFlash();
 
 	UPROPERTY()
 	USphereComponent* CollisionComp;
@@ -53,6 +57,18 @@ protected:
 
 	UPROPERTY()
 	UAnimSequence* DeathAnim;
+
+	// SFX + hit flash
+	UPROPERTY()
+	USoundBase* HitSound;
+
+	UPROPERTY()
+	USoundBase* DeathSound;
+
+	UPROPERTY()
+	UMaterialInterface* HitFlashOverlay;
+
+	FTimerHandle HitFlashTimer;
 
 	// Transform of the mesh relative to the collision sphere (tunable).
 	UPROPERTY(EditAnywhere, Category = "Mob")

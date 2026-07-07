@@ -18,6 +18,7 @@ class UStaticMesh;
 class UAnimSequence;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
+class USoundBase;
 class AMobEnemy;
 struct FInputActionValue;
 
@@ -200,6 +201,23 @@ protected:
 	bool bInvulnerable = false;
 	bool bDead = false;
 	FTimerHandle InvulnTimer;
+
+	// --- Audio ---
+	UPROPERTY() USoundBase* PossessSound;
+	UPROPERTY() USoundBase* EjectSound;
+	UPROPERTY() USoundBase* LevelUpSound;
+	UPROPERTY() USoundBase* PickSound;
+	UPROPERTY() USoundBase* HurtSound;
+	UPROPERTY() USoundBase* GameOverSound;
+	UPROPERTY() USoundBase* KnockbackSound;
+
+	void PlayUISound(USoundBase* Sound);
+
+	// --- Camera shake (procedural) ---
+	float ShakeTimeLeft = 0.f;
+	float ShakeDuration = 0.f;
+	float ShakeAmplitude = 0.f;
+	void AddCameraShake(float Amplitude, float Duration);
 
 	// Parasite ooze mesh (sphere), resolved in the constructor.
 	UPROPERTY()

@@ -7,6 +7,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Animation/AnimSequence.h"
+#include "Sound/SoundBase.h"
+#include "Materials/MaterialInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "TimerManager.h"
@@ -50,6 +52,22 @@ AMobEnemy::AMobEnemy()
 	if (DeathFinder.Succeeded())
 	{
 		DeathAnim = DeathFinder.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> HitSndFinder(TEXT("/Game/Sounds/sfx_hit.sfx_hit"));
+	if (HitSndFinder.Succeeded())
+	{
+		HitSound = HitSndFinder.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<USoundBase> DeathSndFinder(TEXT("/Game/Sounds/sfx_mobdeath.sfx_mobdeath"));
+	if (DeathSndFinder.Succeeded())
+	{
+		DeathSound = DeathSndFinder.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> FlashFinder(TEXT("/Game/Materials/M_HitFlash.M_HitFlash"));
+	if (FlashFinder.Succeeded())
+	{
+		HitFlashOverlay = FlashFinder.Object;
 	}
 }
 
@@ -192,9 +210,30 @@ void AMobEnemy::TakeHit(float DamageAmount)
 		return;
 	}
 	Health -= DamageAmount;
+
 	if (Health <= 0.f)
 	{
 		Die();
+		return;
+	}
+
+	// Juice: hit sound + brief white overlay flash.
+	if (HitSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetActorLocation(), 0.6f);
+	}
+	if (HitFlashOverlay && BodyMesh)
+	{
+		BodyMesh->SetOverlayMaterial(HitFlashOverlay);
+		GetWorldTimerManager().SetTimer(HitFlashTimer, this, &AMobEnemy::ClearHitFlash, 0.07f, false);
+	}
+}
+
+void AMobEnemy::ClearHitFlash()
+{
+	if (BodyMesh)
+	{
+		BodyMesh->SetOverlayMaterial(nullptr);
 	}
 }
 
@@ -205,6 +244,12 @@ void AMobEnemy::Die()
 		return;
 	}
 	bDying = true;
+
+	ClearHitFlash();
+	if (DeathSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, DeathSound, GetActorLocation(), 0.7f);
+	}
 
 	if (AParasitePawn* Player = Cast<AParasitePawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
 	{

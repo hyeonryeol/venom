@@ -20,6 +20,8 @@
 #include "UObject/ConstructorHelpers.h"
 
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Sound/SoundBase.h"
+#include "Components/AudioComponent.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -83,6 +85,26 @@ AParasitePawn::AParasitePawn()
 	if (SymbioteFinder.Succeeded())
 	{
 		SymbioteMaterial = SymbioteFinder.Object;
+	}
+
+	// SFX
+	struct FSndBind { USoundBase** Ptr; const TCHAR* Path; };
+	const FSndBind Sounds[] = {
+		{ &PossessSound,   TEXT("/Game/Sounds/sfx_possess.sfx_possess") },
+		{ &EjectSound,     TEXT("/Game/Sounds/sfx_eject.sfx_eject") },
+		{ &LevelUpSound,   TEXT("/Game/Sounds/sfx_levelup.sfx_levelup") },
+		{ &PickSound,      TEXT("/Game/Sounds/sfx_pick.sfx_pick") },
+		{ &HurtSound,      TEXT("/Game/Sounds/sfx_hurt.sfx_hurt") },
+		{ &GameOverSound,  TEXT("/Game/Sounds/sfx_gameover.sfx_gameover") },
+		{ &KnockbackSound, TEXT("/Game/Sounds/sfx_swoosh.sfx_swoosh") },
+	};
+	for (const FSndBind& B : Sounds)
+	{
+		ConstructorHelpers::FObjectFinder<USoundBase> F(B.Path);
+		if (F.Succeeded())
+		{
+			*B.Ptr = F.Object;
+		}
 	}
 
 	// Host form: the possessed goblin (same mesh as enemies, symbiote-tinted).
@@ -277,6 +299,22 @@ void AParasitePawn::ExitHostForm()
 void AParasitePawn::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// Procedural camera shake.
+	if (Camera)
+	{
+		if (ShakeTimeLeft > 0.f)
+		{
+			ShakeTimeLeft -= DeltaSeconds;
+			const float Alpha = (ShakeDuration > 0.f) ? FMath::Clamp(ShakeTimeLeft / ShakeDuration, 0.f, 1.f) : 0.f;
+			const float A = ShakeAmplitude * Alpha;
+			Camera->SetRelativeLocation(FVector(FMath::FRandRange(-A, A), FMath::FRandRange(-A, A), FMath::FRandRange(-A, A)));
+		}
+		else if (!Camera->GetRelativeLocation().IsNearlyZero())
+		{
+			Camera->SetRelativeLocation(FVector::ZeroVector);
+		}
+	}
 
 	// Remember where we're heading — that's where attacks fire.
 	{
@@ -543,6 +581,9 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	SetSelectedTarget(nullptr);
 	Host->Destroy();
 
+	UGameplayStatics::PlaySound2D(this, PossessSound, 0.8f);
+	AddCameraShake(6.f, 0.22f);
+
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(2, 2.0f, FColor::Green, TEXT("Possessed a host!"));
@@ -631,6 +672,12 @@ void AParasitePawn::PerformAttack()
 		}
 	}
 
+	// Parasite shove: swoosh when it knocks mobs back.
+	if (!bHost && Targets.Num() > 0)
+	{
+		UGameplayStatics::PlaySound2D(this, KnockbackSound, 0.5f);
+	}
+
 	// Host swings its weapon when it actually connects.
 	if (bHost && Targets.Num() > 0 && HostAttackAnim && !bHostAttacking)
 	{
@@ -683,6 +730,8 @@ void AParasitePawn::LevelUp()
 	XPToNext = FMath::CeilToFloat(XPToNext * 1.3f);
 	++PendingLevelUps;
 
+	PlayUISound(LevelUpSound);
+
 	if (!bChoosingAugment)
 	{
 		StartAugmentChoice();
@@ -728,6 +777,7 @@ void AParasitePawn::ChooseAugment(int32 OptionIndex)
 	}
 
 	ApplyAugment(CurrentAugmentOptions[OptionIndex]);
+	PlayUISound(PickSound);
 
 	bChoosingAugment = false;
 	--PendingLevelUps;
@@ -821,6 +871,10 @@ void AParasitePawn::ReceiveContactDamage(float Amount)
 	}
 
 	Health -= Amount;
+
+	UGameplayStatics::PlaySound2D(this, HurtSound, 0.5f);
+	AddCameraShake(5.f, 0.15f);
+
 	if (Health <= 0.f)
 	{
 		if (bIsPossessing)
@@ -844,6 +898,9 @@ void AParasitePawn::EjectFromHost()
 	MaxHealth = ParasiteMaxHP;
 	Health = ParasiteMaxHP;
 
+	UGameplayStatics::PlaySound2D(this, EjectSound, 0.9f);
+	AddCameraShake(11.f, 0.3f);
+
 	// Brief grace so you aren't instantly re-killed.
 	bInvulnerable = true;
 	GetWorldTimerManager().SetTimer(InvulnTimer, this, &AParasitePawn::EndInvuln, EjectInvulnTime, false);
@@ -864,6 +921,25 @@ void AParasitePawn::OnPossessReady()
 	bPossessReady = true;
 }
 
+void AParasitePawn::PlayUISound(USoundBase* Sound)
+{
+	if (!Sound)
+	{
+		return;
+	}
+	if (UAudioComponent* AC = UGameplayStatics::SpawnSound2D(this, Sound))
+	{
+		AC->bIsUISound = true; // keeps playing while the game is paused
+	}
+}
+
+void AParasitePawn::AddCameraShake(float Amplitude, float Duration)
+{
+	ShakeAmplitude = FMath::Max(ShakeAmplitude, Amplitude);
+	ShakeDuration = FMath::Max(ShakeDuration, Duration);
+	ShakeTimeLeft = FMath::Max(ShakeTimeLeft, Duration);
+}
+
 void AParasitePawn::GameOver()
 {
 	if (bDead)
@@ -872,6 +948,8 @@ void AParasitePawn::GameOver()
 	}
 	bDead = true;
 	Health = 0.f;
+	PlayUISound(GameOverSound);
+	AddCameraShake(14.f, 0.5f);
 	UGameplayStatics::SetGamePaused(this, true);
 
 	if (GEngine)
