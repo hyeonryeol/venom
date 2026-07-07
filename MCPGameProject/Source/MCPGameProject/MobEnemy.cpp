@@ -270,7 +270,7 @@ void AMobEnemy::TakeHit(float DamageAmount)
 	if (HitFlashOverlay && BodyMesh)
 	{
 		BodyMesh->SetOverlayMaterial(HitFlashOverlay);
-		GetWorldTimerManager().SetTimer(HitFlashTimer, this, &AMobEnemy::ClearHitFlash, 0.07f, false);
+		GetWorldTimerManager().SetTimer(HitFlashTimer, this, &AMobEnemy::ClearHitFlash, 0.14f, false);
 	}
 }
 

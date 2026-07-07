@@ -87,6 +87,10 @@ void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 			Push.Z = 0.f;
 			Mob->ApplyKnockback(Push.GetSafeNormal() * 350.f);
 			Mob->TakeHit(Damage);
+			if (Mesh)
+			{
+				Mesh->SetVisibility(false); // don't obscure the mob's white hit flash
+			}
 			Destroy();
 		}
 	}
