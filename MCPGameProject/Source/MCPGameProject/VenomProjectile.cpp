@@ -79,6 +79,12 @@ void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDam
 void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	// Already spent (Destroy queued this frame) — ignore further overlaps.
+	if (IsActorBeingDestroyed())
+	{
+		return;
+	}
+
 	if (bDamagesMobs)
 	{
 		// Player's shot: hurt mobs (with a slight knockback), pass through player.
