@@ -17,7 +17,7 @@ AVenomProjectile::AVenomProjectile()
 	InitialLifeSpan = 3.5f;
 
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComp"));
-	CollisionComp->InitSphereRadius(22.f);
+	CollisionComp->InitSphereRadius(30.f);
 	CollisionComp->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AVenomProjectile::OnOverlap);
 	RootComponent = CollisionComp;

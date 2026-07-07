@@ -70,6 +70,10 @@ protected:
 	UPROPERTY()
 	UMaterialInterface* HitFlashOverlay;
 
+	// Persistent overlay (e.g. ranged goblins glow blue); restored after a flash.
+	UPROPERTY()
+	UMaterialInterface* BaseOverlay;
+
 	FTimerHandle HitFlashTimer;
 
 	// Transform of the mesh relative to the collision sphere (tunable).
@@ -106,13 +110,13 @@ protected:
 
 	// Contact attack on the player.
 	UPROPERTY(EditAnywhere, Category = "Mob")
-	float ContactDamage = 7.f;
+	float ContactDamage = 4.f;
 
 	UPROPERTY(EditAnywhere, Category = "Mob")
 	float ContactRange = 110.f;
 
 	UPROPERTY(EditAnywhere, Category = "Mob")
-	float AttackCooldown = 0.7f;
+	float AttackCooldown = 1.0f;
 
 	float LastAttackTime = -100.f;
 

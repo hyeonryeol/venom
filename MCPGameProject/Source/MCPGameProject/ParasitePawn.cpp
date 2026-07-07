@@ -649,7 +649,7 @@ void AParasitePawn::PerformAttack()
 	{
 		if (HostProjectileClass && GetWorld())
 		{
-			const FVector Muzzle = MyLoc + FVector(0.f, 0.f, 70.f) + Aim * 60.f;
+			const FVector Muzzle = MyLoc + FVector(0.f, 0.f, 15.f) + Aim * 10.f;
 			FActorSpawnParameters Params;
 			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			if (AVenomProjectile* Proj = GetWorld()->SpawnActor<AVenomProjectile>(HostProjectileClass, Muzzle, Aim.Rotation(), Params))

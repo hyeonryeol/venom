@@ -2,6 +2,8 @@
 
 #include "MobRangedGoblin.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "UObject/ConstructorHelpers.h"
 
 AMobRangedGoblin::AMobRangedGoblin()
 {
@@ -16,5 +18,12 @@ AMobRangedGoblin::AMobRangedGoblin()
 	if (BodyMesh)
 	{
 		BodyMesh->SetRelativeScale3D(FVector(MeshScale));
+	}
+
+	// Blue glow so ranged goblins are easy to spot (and pick to possess).
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TintFinder(TEXT("/Game/Materials/M_RangedTint.M_RangedTint"));
+	if (TintFinder.Succeeded())
+	{
+		BaseOverlay = TintFinder.Object;
 	}
 }

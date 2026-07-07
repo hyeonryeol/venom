@@ -80,7 +80,7 @@ void AMobEnemy::Shoot(const FVector& TargetLoc)
 	{
 		return;
 	}
-	const FVector Muzzle = GetActorLocation() + FVector(0.f, 0.f, 60.f);
+	const FVector Muzzle = GetActorLocation() + FVector(0.f, 0.f, 15.f);
 	FVector Dir = TargetLoc - Muzzle;
 	Dir.Z = 0.f;
 	Dir = Dir.GetSafeNormal();
@@ -88,7 +88,7 @@ void AMobEnemy::Shoot(const FVector& TargetLoc)
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	AVenomProjectile* Proj = GetWorld()->SpawnActor<AVenomProjectile>(
-		ProjectileClass, Muzzle + Dir * 60.f, Dir.Rotation(), Params);
+		ProjectileClass, Muzzle + Dir * 10.f, Dir.Rotation(), Params);
 	if (Proj)
 	{
 		Proj->Launch(Dir, ProjectileSpeed, ProjectileDamage, /*bHitMobs=*/false);
@@ -110,6 +110,11 @@ void AMobEnemy::BeginPlay()
 
 	Health = MaxHealth;
 	PlayLoop(WalkAnim);
+
+	if (BaseOverlay && BodyMesh)
+	{
+		BodyMesh->SetOverlayMaterial(BaseOverlay);
+	}
 }
 
 void AMobEnemy::PlayLoop(UAnimSequence* Anim)
@@ -278,7 +283,7 @@ void AMobEnemy::ClearHitFlash()
 {
 	if (BodyMesh)
 	{
-		BodyMesh->SetOverlayMaterial(nullptr);
+		BodyMesh->SetOverlayMaterial(BaseOverlay); // restore blue tint for ranged, else none
 	}
 }
 
