@@ -2,6 +2,7 @@
 
 #include "MobEnemy.h"
 #include "ParasitePawn.h"
+#include "VenomProjectile.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -68,6 +69,38 @@ AMobEnemy::AMobEnemy()
 	if (FlashFinder.Succeeded())
 	{
 		HitFlashOverlay = FlashFinder.Object;
+	}
+
+	ProjectileClass = AVenomProjectile::StaticClass();
+}
+
+void AMobEnemy::Shoot(const FVector& TargetLoc)
+{
+	if (!ProjectileClass || !GetWorld())
+	{
+		return;
+	}
+	const FVector Muzzle = GetActorLocation() + FVector(0.f, 0.f, 60.f);
+	FVector Dir = TargetLoc - Muzzle;
+	Dir.Z = 0.f;
+	Dir = Dir.GetSafeNormal();
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AVenomProjectile* Proj = GetWorld()->SpawnActor<AVenomProjectile>(
+		ProjectileClass, Muzzle + Dir * 60.f, Dir.Rotation(), Params);
+	if (Proj)
+	{
+		Proj->Launch(Dir, ProjectileSpeed, ProjectileDamage);
+	}
+
+	// Reuse the melee swing anim as the "cast/shoot" gesture.
+	if (AttackAnim && BodyMesh && !bAttacking)
+	{
+		bAttacking = true;
+		BodyMesh->PlayAnimation(AttackAnim, false);
+		GetWorldTimerManager().SetTimer(AttackAnimTimer, this,
+			&AMobEnemy::OnAttackAnimDone, AttackAnim->GetPlayLength(), false);
 	}
 }
 
@@ -168,6 +201,18 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	if (!ChaseDir.IsNearlyZero())
 	{
 		SetActorRotation(ChaseDir.Rotation());
+	}
+
+	// Ranged: fire a projectile at the player from a distance.
+	if (bRanged)
+	{
+		const float Now = GetWorld()->GetTimeSeconds();
+		if (FVector::Dist2D(Player->GetActorLocation(), MyLoc) <= ShootRange &&
+			Now - LastShootTime >= ShootCooldown)
+		{
+			LastShootTime = Now;
+			Shoot(Player->GetActorLocation());
+		}
 	}
 
 	// Contact attack: bite the player on a cooldown while touching.

@@ -12,6 +12,7 @@ class UAnimSequence;
 class USoundBase;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
+class AVenomProjectile;
 
 UCLASS()
 class MCPGAMEPROJECT_API AMobEnemy : public APawn
@@ -113,6 +114,29 @@ protected:
 	float AttackCooldown = 0.7f;
 
 	float LastAttackTime = -100.f;
+
+	// --- Ranged variant (fires projectiles instead of only melee) ---
+	UPROPERTY(EditAnywhere, Category = "Ranged")
+	bool bRanged = false;
+
+	UPROPERTY(EditAnywhere, Category = "Ranged")
+	float ShootRange = 750.f;
+
+	UPROPERTY(EditAnywhere, Category = "Ranged")
+	float ShootCooldown = 1.7f;
+
+	UPROPERTY(EditAnywhere, Category = "Ranged")
+	float ProjectileDamage = 9.f;
+
+	UPROPERTY(EditAnywhere, Category = "Ranged")
+	float ProjectileSpeed = 950.f;
+
+	UPROPERTY(EditAnywhere, Category = "Ranged")
+	TSubclassOf<AVenomProjectile> ProjectileClass;
+
+	float LastShootTime = -100.f;
+
+	void Shoot(const FVector& TargetLoc);
 
 	// How fast a knockback impulse bleeds off (higher = snappier).
 	UPROPERTY(EditAnywhere, Category = "Mob")

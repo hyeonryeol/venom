@@ -26,6 +26,13 @@ protected:
 	TSubclassOf<AMobEnemy> MobClass;
 
 	UPROPERTY(EditAnywhere, Category = "Spawn")
+	TSubclassOf<AMobEnemy> RangedMobClass;
+
+	// Chance each spawn is a ranged goblin.
+	UPROPERTY(EditAnywhere, Category = "Spawn")
+	float RangedChance = 0.3f;
+
+	UPROPERTY(EditAnywhere, Category = "Spawn")
 	float SpawnInterval = 1.5f;
 
 	UPROPERTY(EditAnywhere, Category = "Spawn")

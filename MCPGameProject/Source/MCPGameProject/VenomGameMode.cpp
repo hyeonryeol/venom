@@ -3,6 +3,7 @@
 #include "VenomGameMode.h"
 #include "ParasitePawn.h"
 #include "MobEnemy.h"
+#include "MobRangedGoblin.h"
 #include "VenomPlayerController.h"
 #include "VenomHUD.h"
 
@@ -16,6 +17,7 @@ AVenomGameMode::AVenomGameMode()
 	PlayerControllerClass = AVenomPlayerController::StaticClass();
 	HUDClass = AVenomHUD::StaticClass();
 	MobClass = AMobEnemy::StaticClass();
+	RangedMobClass = AMobRangedGoblin::StaticClass();
 }
 
 void AVenomGameMode::BeginPlay()
@@ -59,5 +61,11 @@ void AVenomGameMode::SpawnMob()
 
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-	World->SpawnActor<AMobEnemy>(MobClass, SpawnLoc, FRotator::ZeroRotator, Params);
+
+	TSubclassOf<AMobEnemy> ToSpawn = MobClass;
+	if (RangedMobClass && FMath::FRand() < RangedChance)
+	{
+		ToSpawn = RangedMobClass;
+	}
+	World->SpawnActor<AMobEnemy>(ToSpawn, SpawnLoc, FRotator::ZeroRotator, Params);
 }
