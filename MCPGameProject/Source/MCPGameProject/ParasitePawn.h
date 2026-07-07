@@ -156,6 +156,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float HostProjectileSpeed = 1100.f;
 
+	// Extra mobs the player's projectile passes through (augment).
+	int32 PiercePower = 0;
+
 	// Attacks hit within this half-angle of the facing direction (a wedge).
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackHalfAngleDeg = 55.f;

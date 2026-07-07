@@ -57,10 +57,11 @@ void AVenomProjectile::BeginPlay()
 	}
 }
 
-void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs)
+void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs, int32 Pierce)
 {
 	Damage = InDamage;
 	bDamagesMobs = bHitMobs;
+	PierceRemaining = Pierce;
 
 	const FVector Dir = Direction.GetSafeNormal();
 	Movement->InitialSpeed = Speed;
@@ -83,15 +84,29 @@ void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		// Player's shot: hurt mobs (with a slight knockback), pass through player.
 		if (AMobEnemy* Mob = Cast<AMobEnemy>(OtherActor))
 		{
+			if (HitActors.Contains(Mob))
+			{
+				return; // don't hit the same mob twice while overlapping
+			}
+			HitActors.Add(Mob);
+
 			FVector Push = Movement ? Movement->Velocity.GetSafeNormal() : GetActorForwardVector();
 			Push.Z = 0.f;
 			Mob->ApplyKnockback(Push.GetSafeNormal() * 350.f);
 			Mob->TakeHit(Damage);
-			if (Mesh)
+
+			if (PierceRemaining > 0)
 			{
-				Mesh->SetVisibility(false); // don't obscure the mob's white hit flash
+				--PierceRemaining; // keep flying through
 			}
-			Destroy();
+			else
+			{
+				if (Mesh)
+				{
+					Mesh->SetVisibility(false);
+				}
+				Destroy();
+			}
 		}
 	}
 	else

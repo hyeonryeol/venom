@@ -20,8 +20,9 @@ public:
 	AVenomProjectile();
 
 	/** Launch toward Direction. bHitMobs=true -> player's shot (damages mobs);
-	 *  false -> enemy shot (damages the player). */
-	void Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs);
+	 *  false -> enemy shot (damages the player). Pierce = extra mobs it passes
+	 *  through (0 = destroyed on first hit). */
+	void Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs, int32 Pierce = 0);
 
 protected:
 	virtual void BeginPlay() override;
@@ -47,4 +48,8 @@ protected:
 
 	float Damage = 10.f;
 	bool bDamagesMobs = false;
+	int32 PierceRemaining = 0;
+
+	UPROPERTY()
+	TArray<AActor*> HitActors;
 };

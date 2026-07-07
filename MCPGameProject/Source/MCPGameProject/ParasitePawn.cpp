@@ -654,7 +654,7 @@ void AParasitePawn::PerformAttack()
 			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			if (AVenomProjectile* Proj = GetWorld()->SpawnActor<AVenomProjectile>(HostProjectileClass, Muzzle, Aim.Rotation(), Params))
 			{
-				Proj->Launch(Aim, HostProjectileSpeed, HostDamage, /*bHitMobs=*/true);
+				Proj->Launch(Aim, HostProjectileSpeed, HostDamage, /*bHitMobs=*/true, PiercePower);
 			}
 		}
 		if (KnockbackSound)
@@ -777,8 +777,8 @@ void AParasitePawn::StartAugmentChoice()
 		return;
 	}
 
-	// Offer 3 distinct augments from the pool (ids 0..4).
-	TArray<int32> Pool = { 0, 1, 2, 3, 4 };
+	// Offer 3 distinct augments from the pool (ids 0..5).
+	TArray<int32> Pool = { 0, 1, 2, 3, 4, 5 };
 	CurrentAugmentOptions.Reset();
 	for (int32 i = 0; i < 3 && Pool.Num() > 0; ++i)
 	{
@@ -854,6 +854,9 @@ void AParasitePawn::ApplyAugment(int32 AugmentId)
 	case 4: // parasite knockback
 		ParasiteKnockback += 400.f;
 		break;
+	case 5: // projectile pierce
+		PiercePower += 1;
+		break;
 	default:
 		break;
 	}
@@ -874,6 +877,7 @@ FString AParasitePawn::AugmentName(int32 AugmentId) const
 	case 2: return TEXT("+100 Move Speed");
 	case 3: return TEXT("+100 Possess Range");
 	case 4: return TEXT("+400 Parasite Knockback");
+	case 5: return TEXT("Projectiles pierce +1 enemy");
 	default: return TEXT("Unknown");
 	}
 }
@@ -887,6 +891,7 @@ FString AParasitePawn::AugmentTitle(int32 AugmentId) const
 	case 2: return TEXT("SWIFT OOZE");
 	case 3: return TEXT("LONG REACH");
 	case 4: return TEXT("REPULSION");
+	case 5: return TEXT("PIERCING SHOT");
 	default: return TEXT("UNKNOWN");
 	}
 }
