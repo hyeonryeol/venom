@@ -128,10 +128,10 @@ protected:
 	float ShootRange = 750.f;
 
 	UPROPERTY(EditAnywhere, Category = "Ranged")
-	float ShootCooldown = 1.7f;
+	float ShootCooldown = 2.5f;
 
 	UPROPERTY(EditAnywhere, Category = "Ranged")
-	float ProjectileDamage = 9.f;
+	float ProjectileDamage = 5.f;
 
 	UPROPERTY(EditAnywhere, Category = "Ranged")
 	float ProjectileSpeed = 600.f;

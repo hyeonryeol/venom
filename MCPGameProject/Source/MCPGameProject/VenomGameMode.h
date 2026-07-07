@@ -30,7 +30,7 @@ protected:
 
 	// Chance each spawn is a ranged goblin.
 	UPROPERTY(EditAnywhere, Category = "Spawn")
-	float RangedChance = 0.3f;
+	float RangedChance = 0.22f;
 
 	UPROPERTY(EditAnywhere, Category = "Spawn")
 	float SpawnInterval = 1.5f;
