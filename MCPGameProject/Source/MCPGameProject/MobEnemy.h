@@ -130,7 +130,7 @@ protected:
 	float ProjectileDamage = 9.f;
 
 	UPROPERTY(EditAnywhere, Category = "Ranged")
-	float ProjectileSpeed = 950.f;
+	float ProjectileSpeed = 600.f;
 
 	UPROPERTY(EditAnywhere, Category = "Ranged")
 	TSubclassOf<AVenomProjectile> ProjectileClass;
