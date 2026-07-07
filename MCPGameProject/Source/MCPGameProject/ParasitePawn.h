@@ -20,6 +20,7 @@ class UMaterialInterface;
 class UMaterialInstanceDynamic;
 class USoundBase;
 class AMobEnemy;
+class AVenomProjectile;
 struct FInputActionValue;
 
 /**
@@ -145,6 +146,15 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float HostDamage = 25.f;
+
+	// If the possessed host was a ranged goblin, our attack throws projectiles.
+	bool bHostRanged = false;
+
+	UPROPERTY()
+	TSubclassOf<AVenomProjectile> HostProjectileClass;
+
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float HostProjectileSpeed = 1100.f;
 
 	// Attacks hit within this half-angle of the facing direction (a wedge).
 	UPROPERTY(EditAnywhere, Category = "Attack")

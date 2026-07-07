@@ -2,6 +2,7 @@
 
 #include "ParasitePawn.h"
 #include "MobEnemy.h"
+#include "VenomProjectile.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -195,6 +196,8 @@ AParasitePawn::AParasitePawn()
 	InputMapping->MapKey(Augment2Action, EKeys::Two);
 	InputMapping->MapKey(Augment3Action, EKeys::Three);
 	InputMapping->MapKey(RestartAction, EKeys::R);
+
+	HostProjectileClass = AVenomProjectile::StaticClass();
 
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
@@ -568,6 +571,7 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	SetActorLocation(FVector(HostLoc.X, HostLoc.Y, GetActorLocation().Z));
 
 	bIsPossessing = true;
+	bHostRanged = Host->IsRanged();
 	EnterHostForm();
 
 	// Inherit the host's current HP (possess a healthy one!).
@@ -639,6 +643,34 @@ void AParasitePawn::PerformAttack()
 	Aim.Z = 0.f;
 	Aim = Aim.GetSafeNormal();
 	AttackFacing = Aim; // the host turns to face this while swinging
+
+	// Ranged host: throw a projectile at the target instead of a melee wedge.
+	if (bHost && bHostRanged)
+	{
+		if (HostProjectileClass && GetWorld())
+		{
+			const FVector Muzzle = MyLoc + FVector(0.f, 0.f, 70.f) + Aim * 60.f;
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			if (AVenomProjectile* Proj = GetWorld()->SpawnActor<AVenomProjectile>(HostProjectileClass, Muzzle, Aim.Rotation(), Params))
+			{
+				Proj->Launch(Aim, HostProjectileSpeed, HostDamage, /*bHitMobs=*/true);
+			}
+		}
+		if (KnockbackSound)
+		{
+			UGameplayStatics::PlaySound2D(this, KnockbackSound, 0.4f);
+		}
+		if (HostAttackAnim && HostGoblinMesh && !bHostAttacking)
+		{
+			bHostAttacking = true;
+			HostGoblinMesh->PlayAnimation(HostAttackAnim, false);
+			GetWorldTimerManager().SetTimer(HostAttackTimer, this,
+				&AParasitePawn::OnHostAttackDone, HostAttackAnim->GetPlayLength(), false);
+		}
+		return;
+	}
+
 	const float CosThreshold = FMath::Cos(FMath::DegreesToRadians(AttackHalfAngleDeg));
 
 	// Gather targets inside the wedge around the target (damage can destroy mobs).
@@ -892,6 +924,7 @@ void AParasitePawn::EjectFromHost()
 {
 	// Lose the body, burst back out as the bare parasite.
 	bIsPossessing = false;
+	bHostRanged = false;
 	BodyMesh->SetRelativeScale3D(FVector(0.8f));
 	ExitHostForm();
 

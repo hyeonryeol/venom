@@ -35,6 +35,7 @@ public:
 
 	float GetHealth() const { return Health; }
 	float GetMaxHealth() const { return MaxHealth; }
+	bool IsRanged() const { return bRanged; }
 
 protected:
 	virtual void BeginPlay() override;

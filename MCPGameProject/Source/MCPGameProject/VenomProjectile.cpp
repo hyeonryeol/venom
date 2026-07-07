@@ -2,6 +2,7 @@
 
 #include "VenomProjectile.h"
 #include "ParasitePawn.h"
+#include "MobEnemy.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -50,28 +51,49 @@ void AVenomProjectile::BeginPlay()
 
 	if (TintMaterial)
 	{
-		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(TintMaterial, this);
+		MID = UMaterialInstanceDynamic::Create(TintMaterial, this);
 		Mesh->SetMaterial(0, MID);
-		MID->SetVectorParameterValue(TEXT("Color"), FLinearColor(4.0f, 0.4f, 0.05f)); // bright orange glow
+		MID->SetVectorParameterValue(TEXT("Color"), FLinearColor(4.0f, 0.4f, 0.05f)); // orange (enemy default)
 	}
 }
 
-void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDamage)
+void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs)
 {
 	Damage = InDamage;
+	bDamagesMobs = bHitMobs;
+
 	const FVector Dir = Direction.GetSafeNormal();
 	Movement->InitialSpeed = Speed;
 	Movement->MaxSpeed = Speed;
 	Movement->Velocity = Dir * Speed;
+
+	if (MID)
+	{
+		// Player shots glow venom-cyan; enemy shots stay orange.
+		MID->SetVectorParameterValue(TEXT("Color"),
+			bHitMobs ? FLinearColor(0.1f, 3.5f, 3.0f) : FLinearColor(4.0f, 0.4f, 0.05f));
+	}
 }
 
 void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	// Only hurt the player; pass through mobs and the shooter.
-	if (AParasitePawn* Player = Cast<AParasitePawn>(OtherActor))
+	if (bDamagesMobs)
 	{
-		Player->ReceiveContactDamage(Damage);
-		Destroy();
+		// Player's shot: hurt mobs, pass through the player.
+		if (AMobEnemy* Mob = Cast<AMobEnemy>(OtherActor))
+		{
+			Mob->TakeHit(Damage);
+			Destroy();
+		}
+	}
+	else
+	{
+		// Enemy shot: hurt the player, pass through mobs.
+		if (AParasitePawn* Player = Cast<AParasitePawn>(OtherActor))
+		{
+			Player->ReceiveContactDamage(Damage);
+			Destroy();
+		}
 	}
 }

@@ -19,8 +19,9 @@ class MCPGAMEPROJECT_API AVenomProjectile : public AActor
 public:
 	AVenomProjectile();
 
-	/** Launch toward Direction; set speed and damage. */
-	void Launch(const FVector& Direction, float Speed, float InDamage);
+	/** Launch toward Direction. bHitMobs=true -> player's shot (damages mobs);
+	 *  false -> enemy shot (damages the player). */
+	void Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs);
 
 protected:
 	virtual void BeginPlay() override;
@@ -41,5 +42,9 @@ protected:
 	UPROPERTY()
 	UMaterialInterface* TintMaterial;
 
+	UPROPERTY()
+	UMaterialInstanceDynamic* MID;
+
 	float Damage = 10.f;
+	bool bDamagesMobs = false;
 };

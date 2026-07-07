@@ -91,7 +91,7 @@ void AMobEnemy::Shoot(const FVector& TargetLoc)
 		ProjectileClass, Muzzle + Dir * 60.f, Dir.Rotation(), Params);
 	if (Proj)
 	{
-		Proj->Launch(Dir, ProjectileSpeed, ProjectileDamage);
+		Proj->Launch(Dir, ProjectileSpeed, ProjectileDamage, /*bHitMobs=*/false);
 	}
 
 	// Reuse the melee swing anim as the "cast/shoot" gesture.
