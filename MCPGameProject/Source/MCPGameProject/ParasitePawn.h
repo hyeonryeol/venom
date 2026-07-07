@@ -48,6 +48,13 @@ public:
 	bool IsInvulnerable() const { return bInvulnerable; }
 	bool IsDead() const { return bDead; }
 
+	// --- Augment picker API (used by the HUD card UI) ---
+	bool IsChoosingAugment() const { return bChoosingAugment; }
+	const TArray<int32>& GetAugmentOptions() const { return CurrentAugmentOptions; }
+	FString AugmentTitle(int32 AugmentId) const;
+	FString AugmentName(int32 AugmentId) const;
+	void ChooseAugment(int32 OptionIndex);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -251,9 +258,7 @@ protected:
 	void LevelUp();
 
 	void StartAugmentChoice();
-	void ChooseAugment(int32 OptionIndex);
 	void ApplyAugment(int32 AugmentId);
-	FString AugmentName(int32 AugmentId) const;
 
 	void OnAugment1(const FInputActionValue& Value);
 	void OnAugment2(const FInputActionValue& Value);

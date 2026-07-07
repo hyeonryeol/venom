@@ -382,16 +382,7 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		}
 	}
 
-	// Augment picker overlay.
-	if (bChoosingAugment && GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(10, 0.f, FColor::Magenta, TEXT("LEVEL UP! Pick an augment (press 1 / 2 / 3):"));
-		for (int32 i = 0; i < CurrentAugmentOptions.Num(); ++i)
-		{
-			GEngine->AddOnScreenDebugMessage(11 + i, 0.f, FColor::Cyan,
-				FString::Printf(TEXT("   [%d] %s"), i + 1, *AugmentName(CurrentAugmentOptions[i])));
-		}
-	}
+	// (Augment picker cards are drawn by AVenomHUD.)
 }
 
 void AParasitePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -719,6 +710,14 @@ void AParasitePawn::StartAugmentChoice()
 	// Full pause while choosing. Input still reaches us because the controller
 	// is set to tick when paused (see BeginPlay) and this pawn ticks-when-paused.
 	UGameplayStatics::SetGamePaused(this, true);
+
+	// Show the cursor so the HUD cards can be clicked.
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->bShowMouseCursor = true;
+		PC->bEnableClickEvents = true;
+		PC->bEnableMouseOverEvents = true;
+	}
 }
 
 void AParasitePawn::ChooseAugment(int32 OptionIndex)
@@ -740,6 +739,13 @@ void AParasitePawn::ChooseAugment(int32 OptionIndex)
 	else
 	{
 		UGameplayStatics::SetGamePaused(this, false);
+
+		if (APlayerController* PC = Cast<APlayerController>(GetController()))
+		{
+			PC->bShowMouseCursor = false;
+			PC->bEnableClickEvents = false;
+			PC->bEnableMouseOverEvents = false;
+		}
 	}
 }
 
@@ -787,6 +793,19 @@ FString AParasitePawn::AugmentName(int32 AugmentId) const
 	case 3: return TEXT("+100 Possess Range");
 	case 4: return TEXT("+400 Parasite Knockback");
 	default: return TEXT("Unknown");
+	}
+}
+
+FString AParasitePawn::AugmentTitle(int32 AugmentId) const
+{
+	switch (AugmentId)
+	{
+	case 0: return TEXT("BRUTE FORCE");
+	case 1: return TEXT("FRENZY");
+	case 2: return TEXT("SWIFT OOZE");
+	case 3: return TEXT("LONG REACH");
+	case 4: return TEXT("REPULSION");
+	default: return TEXT("UNKNOWN");
 	}
 }
 
