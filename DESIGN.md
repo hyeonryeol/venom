@@ -30,20 +30,30 @@
 - [x] 4. 전투 루프: 몹 접촉 데미지 → 숙주 HP 0 → 이젝트(무적 1.5초) → 기생충 HP 0 → 게임오버(R 재시작). HUD 체력바(하단 중앙)
 - [x] 5. 자동공격 = **자동 타겟팅 부채꼴**(가장 가까운 적 방향, 반각 55°). 기생충=넉백만/고블린=데미지25. 숙주는 공격 시 타겟 방향으로 회전+스윙 애니
 - [x] 경험치→레벨업→**ARAM 스타일 카드 3장 UI**(AVenomHUD 캔버스, 클릭 또는 1/2/3, 일시정지+커서)
-- [x] 비주얼: 기생충 = **임포트 심비오트 메시**(`/Game/baisegongshengti_battle`, 스케일 60, M_Symbiote 검정+빨강 맥동, 절차적 출렁임). 적 고블린 원본 텍스처
-- [ ] 웨이브/난이도 상승, 파티클 이펙트, 맵(아레나 시도 후 삭제 — 조명 문제, 에셋 데모 맵 권장), 사운드
+- [x] 비주얼: 기생충 = **임포트 심비오트 메시**(`/Game/baisegongshengti_battle`, 스케일 60, M_Symbiote 검정+빨강 맥동, 절차적 bob/squash). 적 고블린 원본 텍스처
+- [x] 플레이어 속도 300(고블린 250보다 약간 빠름). 카메라 = 고정 탑다운(800/-60°), 월드 기준 WASD
+- [x] **사수 고블린**(`AMobRangedGoblin`): 파란 발광(M_RangedTint), 접근하며 투사체(`AVenomProjectile`) 발사. 스폰의 22%. 빙의하면 플레이어 기본공격이 **투사체 발사**로 바뀜(청록, 자동타겟). 관통은 없음 → **PIERCING SHOT 증강**(id5)으로만
+- [x] 이펙트/사운드: 몹 피격 흰 플래시(M_HitFlash 오버레이, 0.14초) + 합성 효과음 9종(`/Game/Sounds`, 빙의음은 공포 버전), 카메라 흔들림(빙의/이젝트/피격)
+- [x] 빙의 사거리 빨간 원 = Space 눌렀는데 범위(450)에 몹 없을 때만 1.2초 표시
+- [ ] 웨이브/난이도 상승, 새 몹 종류(돌진/도약), 증강 확장, 맵(아레나 시도했다 삭제 — 조명 이슈, 에셋 데모맵 권장)
 
-### 에셋 임포트 주의
-스켈레탈 FBX 임포트 시 **Skeleton 항목을 반드시 None**으로 (기존 스켈레톤 지정 시 본 병합으로 손상). 사고 시 git checkout으로 복구 가능.
+### 핵심 튜닝 수치 (MobEnemy/ParasitePawn 기본값)
+몹 HP 125(사수 90), 접촉뎀 4/쿨1.0s, MinPlayerDistance 100. 사수: ShootRange 750, 쿨2.5s, 투사체 데미지 5/속도 600. 플레이어: HostDamage 25, AttackInterval 0.6, 부채꼴 반각 55°, 빙의 쿨 10s, 이젝트 무적 1.5s, 기생충 HP 30. 투사체: 반경 30, 총구 Z+15/전방 10.
+
+### 주의 (겪은 함정)
+- 스켈레탈 FBX 임포트 시 **Skeleton 항목 반드시 None** (기존 스켈레톤 지정하면 본 병합으로 손상 → git checkout 복구).
+- 투사체는 **발사자 몸에 겹쳐 생성** → `Launch()`로 친구/적 설정 전 오버랩이 먼저 발생해 자해/오작동. `bLaunched` 전 오버랩 무시로 해결. 비관통은 `bConsumed`+오버랩 비활성화로 한 프레임 다중히트 방지.
+- 투사체가 몹 콜리전(반경 45)에 안 맞고 위로 지나가면 관통처럼 보임 → 발사 높이/반경 맞출 것.
 
 ### 에셋 생성 팁 (중요)
 엔진 기본 도형 머티리얼엔 색 파라미터가 없음. 색/머티리얼 등 에셋이 필요하면 **파이썬 에디터 스크립트로 생성**:
 `PythonScriptPlugin` 활성(.uproject) 후 `UnrealEditor-Cmd.exe <proj> -ExecutePythonScript="<py>" -unattended -nullrhi`. 예시 스크립트로 `/Game/Materials/M_VenomTint`(Color 벡터파라미터→BaseColor+Emissive) 생성함. 폰마다 MID로 `Color` 설정.
 
-## 제작 방식
-- 사용자는 **MCP 워크플로우** 선택 (C++ 직접 작성 아님).
-- 따라서 반드시 **언리얼 에디터를 열어둔 채**, `unrealMCP` MCP 도구(액터/블루프린트/노드 생성 등)로 제작.
-- 에디터가 켜져 있어야 플러그인 TCP 서버(포트 55557)가 살아있고 MCP가 동작함.
+## 제작 방식 (실제)
+- **전부 C++** 로 구현 (GAS/블루프린트 아님). 클래스: `AParasitePawn`(플레이어), `AMobEnemy`/`AMobRangedGoblin`(몹), `AVenomProjectile`, `AVenomGameMode`(스포너), `AVenomPlayerController`(정지 중 입력), `AVenomHUD`(체력바+증강카드).
+- 반복 루프: 에디터 닫기 → 코드 수정 → `Build.bat`로 빌드(에디터가 열려 있으면 DLL 잠김으로 실패) → 커밋/푸시 → 에디터 실행해 테스트.
+- 머티리얼/사운드 등 에셋은 **파이썬 에디터 스크립트**(`-ExecutePythonScript`)로 생성/임포트.
+- MCP(`unrealMCP`)는 연결돼 있으나 런타임 C++ 폰 제어엔 안 씀. 레벨 배치 등에 선택적으로 활용 가능.
 
 ## 환경 메모 (빠른 참조)
 - 엔진: `C:\UE_5.6`. 빌드: `C:\UE_5.6\Engine\Build\BatchFiles\Build.bat MCPGameProjectEditor Win64 Development -project=C:\venom\MCPGameProject\MCPGameProject.uproject -waitmutex`
