@@ -62,6 +62,7 @@ void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDam
 	Damage = InDamage;
 	bDamagesMobs = bHitMobs;
 	PierceRemaining = Pierce;
+	bLaunched = true; // only start hitting things once configured
 
 	const FVector Dir = Direction.GetSafeNormal();
 	Movement->InitialSpeed = Speed;
@@ -79,8 +80,9 @@ void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDam
 void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	// Already spent this frame — ignore any further queued overlaps.
-	if (bConsumed)
+	// Ignore the spawn-time overlap (fires before Launch sets friend/foe) and
+	// any overlaps after we're spent.
+	if (!bLaunched || bConsumed)
 	{
 		return;
 	}
