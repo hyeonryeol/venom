@@ -121,6 +121,9 @@ protected:
 	bool bPossessReady = true;
 	FTimerHandle PossessCDTimer;
 
+	// Show the possess-range ring until this world time (set on a failed possess).
+	float ShowRangeUntil = 0.f;
+
 	// Currently highlighted candidate (raw UPROPERTY -> auto-nulled if it dies).
 	UPROPERTY()
 	AMobEnemy* SelectedTarget;

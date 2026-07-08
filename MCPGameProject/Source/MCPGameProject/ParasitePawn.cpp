@@ -329,10 +329,13 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		}
 	}
 
-	// Possession-range indicator: a flat red ring around the parasite.
-	DrawDebugCircle(GetWorld(), GetActorLocation(), PossessRange, 48, FColor::Red,
-		/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
-		/*YAxis=*/FVector(1.f, 0.f, 0.f), /*ZAxis=*/FVector(0.f, 1.f, 0.f), /*bDrawAxis=*/false);
+	// Possession-range ring: only while briefly flagged (a failed possess attempt).
+	if (GetWorld()->GetTimeSeconds() < ShowRangeUntil)
+	{
+		DrawDebugCircle(GetWorld(), GetActorLocation(), PossessRange, 48, FColor::Red,
+			/*bPersistent=*/false, /*LifeTime=*/-1.f, /*DepthPriority=*/0, /*Thickness=*/4.f,
+			/*YAxis=*/FVector(1.f, 0.f, 0.f), /*ZAxis=*/FVector(0.f, 1.f, 0.f), /*bDrawAxis=*/false);
+	}
 
 	// Parasite: symbiote faces its movement, pulses its rim, and — since it has
 	// no animations — bobs and squash/stretches procedurally so it looks alive.
@@ -559,9 +562,11 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 
 	if (!Host)
 	{
+		// Flash the possess-range ring so you can see nothing's in reach.
+		ShowRangeUntil = GetWorld()->GetTimeSeconds() + 1.2f;
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(1, 1.5f, FColor::Orange, TEXT("No host to possess"));
+			GEngine->AddOnScreenDebugMessage(1, 1.5f, FColor::Orange, TEXT("No host in range"));
 		}
 		return;
 	}
