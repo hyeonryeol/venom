@@ -524,6 +524,24 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 		return;
 	}
 
+	// Pressing possess with nothing in reach flashes the range ring as feedback.
+	{
+		bool bAnyInRange = false;
+		const FVector MyLoc = GetActorLocation();
+		for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
+		{
+			if (FVector::Dist2D(It->GetActorLocation(), MyLoc) <= PossessRange)
+			{
+				bAnyInRange = true;
+				break;
+			}
+		}
+		if (!bAnyInRange)
+		{
+			ShowRangeUntil = GetWorld()->GetTimeSeconds() + 1.2f;
+		}
+	}
+
 	if (!bPossessReady)
 	{
 		if (GEngine)
