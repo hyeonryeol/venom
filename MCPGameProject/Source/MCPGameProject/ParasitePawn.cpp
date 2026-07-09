@@ -1036,7 +1036,7 @@ void AParasitePawn::PerformAttack()
 	if (bHost && Targets.Num() > 0 && HostAttackAnim && !bHostAttacking)
 	{
 		bHostAttacking = true;
-		HostGoblinMesh->PlayAnimation(HostAttackAnim, false);
+		HostAttackStartTime = GetWorld()->GetTimeSeconds();
 		GetWorldTimerManager().SetTimer(HostAttackTimer, this,
 			&AParasitePawn::OnHostAttackDone, HostAttackAnim->GetPlayLength(), false);
 	}
