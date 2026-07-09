@@ -353,9 +353,22 @@ void AParasitePawn::Tick(float DeltaSeconds)
 			if (SymbioteMesh)
 			{
 				const float Lunge = FMath::Sin(A * PI); // 0 -> 1 -> 0 across the arc
-				SymbioteMesh->SetRelativeScale3D(FVector(60.f * (1.f + 0.6f * Lunge),
-														60.f * (1.f - 0.25f * Lunge),
-														60.f * (1.f - 0.25f * Lunge)));
+
+				// Liquid takeoff: at launch the goo is drawn up off the floor into a
+				// tall, thin, wobbling column (like a droplet stretching), then it
+				// slings forward into a lunging tendril mid-arc.
+				const float TakeOff = FMath::Max(0.f, 1.f - A / 0.35f); // 1 at launch -> 0 by A=0.35
+				const float TakeOff2 = TakeOff * TakeOff;               // sharper at the very start
+				const float Jiggle = 0.12f * TakeOff * FMath::Sin(A * 46.f); // liquid ripple, mostly at launch
+
+				const float SX = 60.f * (1.f + 0.6f * Lunge - 0.35f * TakeOff2 - Jiggle);
+				const float SY = 60.f * (1.f - 0.25f * Lunge - 0.35f * TakeOff2 + Jiggle);
+				const float SZ = 60.f * (1.f - 0.25f * Lunge + 1.30f * TakeOff2 + Jiggle);
+				SymbioteMesh->SetRelativeScale3D(FVector(SX, SY, SZ));
+
+				// Trail the base downward so it looks pulled up from the ground.
+				SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f - 30.f * TakeOff2));
+
 				for (UMaterialInstanceDynamic* MID : SymbioteMIDs)
 				{
 					if (MID)
