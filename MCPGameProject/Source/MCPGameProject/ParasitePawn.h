@@ -163,6 +163,18 @@ protected:
 	void EnterLiquidForm();
 	void EndLiquidForm();
 
+	// Extra sphere lumps that cluster around the main blob (fake metaball) and
+	// drag behind as a goo trail while airborne.
+	static constexpr int32 NumGooBlobs = 6;
+
+	UPROPERTY()
+	TArray<UStaticMeshComponent*> GooBlobs;
+
+	UPROPERTY()
+	TArray<UMaterialInstanceDynamic*> GooBlobMIDs;
+
+	void SetGooBlobsVisible(bool bVisible);
+
 	// --- Attack (auto-pulse; stats depend on current form) ---
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackInterval = 0.6f;

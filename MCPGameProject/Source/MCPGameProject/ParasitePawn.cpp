@@ -61,6 +61,24 @@ AParasitePawn::AParasitePawn()
 	}
 	BodyMesh->SetVisibility(false); // replaced by the symbiote skeletal mesh
 
+	// Goo lumps: small spheres that cluster around the main blob (fake metaball)
+	// and trail behind while leaping. Hidden until a possession leap.
+	GooBlobs.Reset();
+	for (int32 i = 0; i < NumGooBlobs; ++i)
+	{
+		UStaticMeshComponent* Blob = CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("GooBlob%d"), i));
+		Blob->SetupAttachment(RootComponent);
+		Blob->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Blob->SetCastShadow(false);
+		if (ParasiteMesh)
+		{
+			Blob->SetStaticMesh(ParasiteMesh);
+		}
+		Blob->SetRelativeScale3D(FVector(0.35f));
+		Blob->SetVisibility(false);
+		GooBlobs.Add(Blob);
+	}
+
 	// Parasite form: the symbiote creature (its own skeleton, no anims — posed).
 	SymbioteMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SymbioteMesh"));
 	SymbioteMesh->SetupAttachment(RootComponent);
@@ -240,6 +258,38 @@ void AParasitePawn::BeginPlay()
 			SymbioteMIDs.Add(MID);
 		}
 	}
+
+	// Same black-glossy goo look for the cluster lumps.
+	GooBlobMIDs.Reset();
+	UMaterialInterface* GooBase = SymbioteMaterial ? SymbioteMaterial : TintMaterial;
+	for (UStaticMeshComponent* Blob : GooBlobs)
+	{
+		if (Blob && GooBase)
+		{
+			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(GooBase, this);
+			Blob->SetMaterial(0, MID);
+			if (!SymbioteMaterial)
+			{
+				MID->SetVectorParameterValue(TEXT("Color"), ParasiteColor);
+			}
+			GooBlobMIDs.Add(MID);
+		}
+		else
+		{
+			GooBlobMIDs.Add(nullptr);
+		}
+	}
+}
+
+void AParasitePawn::SetGooBlobsVisible(bool bVisible)
+{
+	for (UStaticMeshComponent* Blob : GooBlobs)
+	{
+		if (Blob)
+		{
+			Blob->SetVisibility(bVisible);
+		}
+	}
 }
 
 void AParasitePawn::ApplyBodyColor()
@@ -379,6 +429,33 @@ void AParasitePawn::Tick(float DeltaSeconds)
 					// Keep the blob's base near the ground as it grows.
 					BodyMesh->SetRelativeLocation(FVector(0.f, 0.f, 50.f * SZ - 40.f));
 				}
+
+				// Metaball cluster: lumps blend from a wide flat puddle to a rising,
+				// stacked column — a living, wobbling mass of goo.
+				{
+					const float Wc = FMath::Clamp(LeapElapsed / FMath::Max(LeapWindup, 0.0001f), 0.f, 1.f);
+					const float ColBlend = FMath::Clamp((Wc - 0.35f) / 0.65f, 0.f, 1.f); // 0 puddle -> 1 column
+					const float Time = GetWorld()->GetTimeSeconds();
+					for (int32 i = 0; i < GooBlobs.Num(); ++i)
+					{
+						UStaticMeshComponent* Blob = GooBlobs[i];
+						if (!Blob) { continue; }
+						const float Ang = i * 2.39996323f; // golden angle spread
+						const float Rf = 0.45f + 0.55f * (((i * 37) % 100) / 100.f);
+						const float R = FMath::Lerp(62.f * Rf, 16.f * Rf, ColBlend);
+						const float X = FMath::Cos(Ang) * R + 4.f * FMath::Sin(Time * 22.f + i);
+						const float Y = FMath::Sin(Ang) * R + 4.f * FMath::Cos(Time * 20.f + i);
+						const float PudZ = -18.f + 8.f * FMath::Sin(Time * 18.f + i);
+						const float ColZ = FMath::Lerp(-25.f, 135.f, (i + 0.5f) / GooBlobs.Num());
+						const float Z = FMath::Lerp(PudZ, ColZ, ColBlend);
+						Blob->SetRelativeLocation(FVector(X, Y, Z));
+						Blob->SetRelativeScale3D(FVector(0.5f - 0.18f * ColBlend + 0.06f * FMath::Sin(Time * 26.f + i)));
+						if (GooBlobMIDs.IsValidIndex(i) && GooBlobMIDs[i])
+						{
+							GooBlobMIDs[i]->SetScalarParameterValue(TEXT("Pulse"), 1.f);
+						}
+					}
+				}
 			}
 			else
 			{
@@ -401,6 +478,28 @@ void AParasitePawn::Tick(float DeltaSeconds)
 					const float SZ = 0.8f * (1.f - 0.30f * Lunge);
 					BodyMesh->SetRelativeScale3D(FVector(SX, SY, SZ));
 					BodyMesh->SetRelativeLocation(FVector(0.f, 0.f, 0.f));
+				}
+
+				// Goo trail: lumps drag behind along the travel axis, shrinking into
+				// a comet-like tail of dripping symbiote.
+				{
+					const float Time = GetWorld()->GetTimeSeconds();
+					const float Lunge = FMath::Sin(FA * PI);
+					for (int32 i = 0; i < GooBlobs.Num(); ++i)
+					{
+						UStaticMeshComponent* Blob = GooBlobs[i];
+						if (!Blob) { continue; }
+						const float K = (i + 1.f) / GooBlobs.Num(); // 0..1 back along the tail
+						const float BackX = -95.f * K * (0.4f + 0.9f * Lunge);
+						const float WobY = 10.f * FMath::Sin(Time * 30.f + i * 1.7f);
+						const float WobZ = 8.f * FMath::Sin(Time * 24.f + i * 2.3f) - 6.f * K;
+						Blob->SetRelativeLocation(FVector(BackX, WobY, WobZ));
+						Blob->SetRelativeScale3D(FVector(0.5f * (1.f - 0.6f * K)));
+						if (GooBlobMIDs.IsValidIndex(i) && GooBlobMIDs[i])
+						{
+							GooBlobMIDs[i]->SetScalarParameterValue(TEXT("Pulse"), 1.f);
+						}
+					}
 				}
 
 				if (FA >= 1.f)
@@ -733,6 +832,7 @@ void AParasitePawn::EnterLiquidForm()
 	{
 		BodyMesh->SetVisibility(true);
 	}
+	SetGooBlobsVisible(true);
 }
 
 void AParasitePawn::EndLiquidForm()
@@ -743,6 +843,7 @@ void AParasitePawn::EndLiquidForm()
 		BodyMesh->SetRelativeScale3D(FVector(0.8f));
 		BodyMesh->SetRelativeLocation(FVector::ZeroVector);
 	}
+	SetGooBlobsVisible(false);
 	if (SymbioteMesh)
 	{
 		SymbioteMesh->SetRelativeScale3D(FVector(60.f));
@@ -776,6 +877,7 @@ void AParasitePawn::LandOnHost(AMobEnemy* Host)
 		BodyMesh->SetRelativeScale3D(FVector(0.8f));
 		BodyMesh->SetRelativeLocation(FVector::ZeroVector);
 	}
+	SetGooBlobsVisible(false);
 	EnterHostForm();
 
 	// Envelop pop: the symbiote floods over the host, swelling it to full size.
