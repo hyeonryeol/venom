@@ -220,6 +220,9 @@ protected:
 	bool bHostAttacking = false;
 	FTimerHandle HostAttackTimer;
 
+	// World time the current host swing began (drives the layered attack pose).
+	float HostAttackStartTime = 0.f;
+
 	// --- Progression ---
 	UPROPERTY()
 	int32 Level = 1;

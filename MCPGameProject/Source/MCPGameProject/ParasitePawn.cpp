@@ -3,6 +3,7 @@
 #include "ParasitePawn.h"
 #include "MobEnemy.h"
 #include "VenomProjectile.h"
+#include "GoblinAnimInstance.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -133,7 +134,9 @@ AParasitePawn::AParasitePawn()
 	HostGoblinMesh->SetRelativeScale3D(FVector(1.3f)); // a bit bigger than enemy goblins
 	HostGoblinMesh->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
 	HostGoblinMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
-	HostGoblinMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+	// Layered anim instance: lower body walks while the upper body swings.
+	HostGoblinMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+	HostGoblinMesh->SetAnimInstanceClass(UGoblinAnimInstance::StaticClass());
 	HostGoblinMesh->SetVisibility(false);
 
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> GoblinFinder(TEXT("/Game/Goblin_low_for_bake.Goblin_low_for_bake"));
@@ -334,9 +337,13 @@ void AParasitePawn::EnterHostForm()
 	}
 
 	bHostWalking = false;
-	if (HostIdleAnim)
+	bHostAttacking = false;
+	if (UGoblinAnimInstance* AI = Cast<UGoblinAnimInstance>(HostGoblinMesh->GetAnimInstance()))
 	{
-		HostGoblinMesh->PlayAnimation(HostIdleAnim, true);
+		AI->LocomotionAnim = HostIdleAnim;
+		AI->AttackAnim = HostAttackAnim;
+		AI->bAttacking = false;
+		AI->AttackTime = 0.f;
 	}
 }
 
@@ -591,23 +598,23 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		FVector Vel = GetVelocity();
 		Vel.Z = 0.f;
 		const bool bWantWalk = Vel.Size() > 20.f;
+		bHostWalking = bWantWalk;
 		if (bHostAttacking)
 		{
-			// Turn to face the target mid-swing (backpedal-and-slash look).
+			// Face the target while swinging — legs keep walking (backpedal-and-slash).
 			SetActorRotation(AttackFacing.Rotation());
 		}
 		else if (bWantWalk)
 		{
 			SetActorRotation(Vel.Rotation());
 		}
-		if (!bHostAttacking && bWantWalk != bHostWalking)
+
+		// Drive the layered anim instance: lower body walks, upper body swings.
+		if (UGoblinAnimInstance* AI = Cast<UGoblinAnimInstance>(HostGoblinMesh->GetAnimInstance()))
 		{
-			bHostWalking = bWantWalk;
-			UAnimSequence* Anim = bWantWalk ? HostWalkAnim : HostIdleAnim;
-			if (Anim)
-			{
-				HostGoblinMesh->PlayAnimation(Anim, true);
-			}
+			AI->LocomotionAnim = bWantWalk ? HostWalkAnim : HostIdleAnim;
+			AI->bAttacking = bHostAttacking;
+			AI->AttackTime = bHostAttacking ? (T - HostAttackStartTime) : 0.f;
 		}
 	}
 
@@ -979,7 +986,7 @@ void AParasitePawn::PerformAttack()
 		if (HostAttackAnim && HostGoblinMesh && !bHostAttacking)
 		{
 			bHostAttacking = true;
-			HostGoblinMesh->PlayAnimation(HostAttackAnim, false);
+			HostAttackStartTime = GetWorld()->GetTimeSeconds();
 			GetWorldTimerManager().SetTimer(HostAttackTimer, this,
 				&AParasitePawn::OnHostAttackDone, HostAttackAnim->GetPlayLength(), false);
 		}
@@ -1046,19 +1053,9 @@ void AParasitePawn::PerformAttack()
 
 void AParasitePawn::OnHostAttackDone()
 {
+	// The swing is over; the layered anim instance eases the upper body back to
+	// the locomotion pose on its own (Tick keeps LocomotionAnim current).
 	bHostAttacking = false;
-	if (!bIsPossessing)
-	{
-		return;
-	}
-	FVector Vel = GetVelocity();
-	Vel.Z = 0.f;
-	bHostWalking = Vel.Size() > 20.f;
-	UAnimSequence* Anim = bHostWalking ? HostWalkAnim : HostIdleAnim;
-	if (Anim)
-	{
-		HostGoblinMesh->PlayAnimation(Anim, true);
-	}
 }
 
 void AParasitePawn::AddXP(float Amount)
