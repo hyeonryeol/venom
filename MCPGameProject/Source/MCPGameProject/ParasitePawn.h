@@ -190,9 +190,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float HostAttackRange = 300.f;
 
-	// Ranged hosts engage from much farther than melee (else they stutter-fire).
+	// Ranged hosts engage roughly out to the screen edge (melee would stutter-fire).
 	UPROPERTY(EditAnywhere, Category = "Attack")
-	float HostRangedAttackRange = 950.f;
+	float HostRangedAttackRange = 700.f;
 
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float HostDamage = 25.f;
