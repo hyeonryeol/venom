@@ -60,6 +60,12 @@ protected:
 	UPROPERTY()
 	UAnimSequence* DeathAnim;
 
+	UPROPERTY()
+	UAnimSequence* RunAnim;
+
+	UPROPERTY()
+	UAnimSequence* JumpAnim;
+
 	// SFX + hit flash
 	UPROPERTY()
 	USoundBase* HitSound;
@@ -153,4 +159,40 @@ protected:
 	bool bAttacking = false;
 	FTimerHandle AttackAnimTimer;
 	FTimerHandle DeathTimer;
+
+	// --- Movement variant (rolled on spawn; independent of melee/ranged) ---
+	// Runner: sprints with the run anim. Jumper: periodically leaps at the player.
+	UPROPERTY(EditAnywhere, Category = "Variant")
+	float RunnerChance = 0.22f;
+
+	UPROPERTY(EditAnywhere, Category = "Variant")
+	float JumperChance = 0.22f;
+
+	bool bRunner = false;
+	bool bJumper = false;
+
+	UPROPERTY(EditAnywhere, Category = "Variant")
+	float RunSpeedMultiplier = 1.8f;
+
+	// Jumper leap tuning.
+	UPROPERTY(EditAnywhere, Category = "Variant")
+	float JumpInterval = 3.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Variant")
+	float JumpDuration = 0.6f;
+
+	UPROPERTY(EditAnywhere, Category = "Variant")
+	float JumpArcHeight = 220.f;
+
+	UPROPERTY(EditAnywhere, Category = "Variant")
+	float JumpMaxDistance = 500.f;
+
+	float LastJumpTime = -100.f;
+	bool bMidJump = false;
+	float JumpElapsed = 0.f;
+	FVector JumpStart = FVector::ZeroVector;
+	FVector JumpEnd = FVector::ZeroVector;
+
+	// Current locomotion loop (run for runners, else walk).
+	UAnimSequence* LocoAnim() const;
 };

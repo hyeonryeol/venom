@@ -54,6 +54,16 @@ AMobEnemy::AMobEnemy()
 	{
 		DeathAnim = DeathFinder.Object;
 	}
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> RunFinder(TEXT("/Game/Goblin_low_for_bake_Anim_Anim_Full_Run.Goblin_low_for_bake_Anim_Anim_Full_Run"));
+	if (RunFinder.Succeeded())
+	{
+		RunAnim = RunFinder.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UAnimSequence> JumpFinder(TEXT("/Game/Goblin_low_for_bake_Anim_Anim_Full_Jump.Goblin_low_for_bake_Anim_Anim_Full_Jump"));
+	if (JumpFinder.Succeeded())
+	{
+		JumpAnim = JumpFinder.Object;
+	}
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> HitSndFinder(TEXT("/Game/Sounds/sfx_hit.sfx_hit"));
 	if (HitSndFinder.Succeeded())
@@ -109,12 +119,30 @@ void AMobEnemy::BeginPlay()
 	Super::BeginPlay();
 
 	Health = MaxHealth;
-	PlayLoop(WalkAnim);
+
+	// Roll a movement variant (independent of melee/ranged): runner or jumper.
+	const float Roll = FMath::FRand();
+	if (RunAnim && Roll < RunnerChance)
+	{
+		bRunner = true;
+		MoveSpeed *= RunSpeedMultiplier;
+	}
+	else if (JumpAnim && Roll < RunnerChance + JumperChance)
+	{
+		bJumper = true;
+	}
+
+	PlayLoop(LocoAnim());
 
 	if (BaseOverlay && BodyMesh)
 	{
 		BodyMesh->SetOverlayMaterial(BaseOverlay);
 	}
+}
+
+UAnimSequence* AMobEnemy::LocoAnim() const
+{
+	return (bRunner && RunAnim) ? RunAnim : WalkAnim;
 }
 
 void AMobEnemy::PlayLoop(UAnimSequence* Anim)
@@ -149,6 +177,54 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	}
 
 	const FVector MyLoc = GetActorLocation();
+	const float Now = GetWorld()->GetTimeSeconds();
+
+	// Jumper variant: periodically leap at the player in an arc.
+	if (bMidJump)
+	{
+		JumpElapsed += DeltaSeconds;
+		const float A = (JumpDuration > 0.f) ? FMath::Clamp(JumpElapsed / JumpDuration, 0.f, 1.f) : 1.f;
+		FVector P = FMath::Lerp(JumpStart, JumpEnd, A);
+		P.Z = JumpStart.Z + JumpArcHeight * FMath::Sin(A * PI);
+		SetActorLocation(P, /*bSweep=*/false);
+
+		FVector Face = JumpEnd - JumpStart;
+		Face.Z = 0.f;
+		if (!Face.IsNearlyZero())
+		{
+			SetActorRotation(Face.Rotation());
+		}
+		if (A >= 1.f)
+		{
+			bMidJump = false;
+			SetActorLocation(FVector(JumpEnd.X, JumpEnd.Y, JumpStart.Z), false);
+			if (!bDying)
+			{
+				PlayLoop(LocoAnim());
+			}
+		}
+		return; // no chase/attack while airborne
+	}
+
+	if (bJumper && !bAttacking && JumpAnim)
+	{
+		const float DistToPlayer = FVector::Dist2D(Player->GetActorLocation(), MyLoc);
+		if (Now - LastJumpTime >= JumpInterval && DistToPlayer > 160.f && DistToPlayer < 1000.f)
+		{
+			LastJumpTime = Now;
+			bMidJump = true;
+			JumpElapsed = 0.f;
+			JumpStart = MyLoc;
+			FVector Dir = Player->GetActorLocation() - MyLoc;
+			Dir.Z = 0.f;
+			Dir = Dir.GetSafeNormal();
+			// Leap toward the player, but stop short of their body.
+			const float LeapDist = FMath::Clamp(DistToPlayer - MinPlayerDistance, 150.f, JumpMaxDistance);
+			JumpEnd = MyLoc + Dir * LeapDist;
+			BodyMesh->PlayAnimation(JumpAnim, false);
+			return;
+		}
+	}
 
 	// Chase: head straight for the player (on their plane).
 	FVector ToPlayer = Player->GetActorLocation() - MyLoc;
@@ -211,7 +287,6 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	// Ranged: fire a projectile at the player from a distance.
 	if (bRanged)
 	{
-		const float Now = GetWorld()->GetTimeSeconds();
 		if (FVector::Dist2D(Player->GetActorLocation(), MyLoc) <= ShootRange &&
 			Now - LastShootTime >= ShootCooldown)
 		{
@@ -225,7 +300,6 @@ void AMobEnemy::Tick(float DeltaSeconds)
 	{
 		if (FVector::Dist2D(Player->GetActorLocation(), MyLoc) <= ContactRange)
 		{
-			const float Now = GetWorld()->GetTimeSeconds();
 			if (Now - LastAttackTime >= AttackCooldown)
 			{
 				LastAttackTime = Now;
@@ -249,7 +323,7 @@ void AMobEnemy::OnAttackAnimDone()
 	bAttacking = false;
 	if (!bDying)
 	{
-		PlayLoop(WalkAnim);
+		PlayLoop(LocoAnim());
 	}
 }
 
