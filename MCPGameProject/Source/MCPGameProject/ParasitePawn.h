@@ -132,6 +132,29 @@ protected:
 	UPROPERTY()
 	bool bIsPossessing = false;
 
+	// --- Cinematic possession leap (the symbiote pounces onto its host) ---
+	bool bLeaping = false;
+
+	UPROPERTY()
+	AMobEnemy* LeapTarget = nullptr;
+
+	float LeapElapsed = 0.f;
+	FVector LeapStart = FVector::ZeroVector;
+
+	// Airtime of the pounce and how high the arc rises.
+	UPROPERTY(EditAnywhere, Category = "Possession")
+	float LeapDuration = 0.28f;
+
+	UPROPERTY(EditAnywhere, Category = "Possession")
+	float LeapArcHeight = 170.f;
+
+	// Brief "flood over the host" pop right after landing.
+	bool bEnveloping = false;
+	float EnvelopElapsed = 0.f;
+
+	void StartLeap(AMobEnemy* Host);
+	void LandOnHost(AMobEnemy* Host);
+
 	// --- Attack (auto-pulse; stats depend on current form) ---
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackInterval = 0.6f;

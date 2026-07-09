@@ -319,6 +319,62 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		}
 	}
 
+	// Cinematic possession leap: arc onto the host, then latch on landing.
+	if (bLeaping)
+	{
+		LeapElapsed += DeltaSeconds;
+		const float A = (LeapDuration > 0.f) ? FMath::Clamp(LeapElapsed / LeapDuration, 0.f, 1.f) : 1.f;
+
+		if (!LeapTarget)
+		{
+			// Host vanished before we reached it — abort the pounce.
+			bLeaping = false;
+			bInvulnerable = false;
+			if (SymbioteMesh)
+			{
+				SymbioteMesh->SetRelativeScale3D(FVector(60.f));
+			}
+		}
+		else
+		{
+			const FVector T = LeapTarget->GetActorLocation();
+			FVector Pos = FMath::Lerp(FVector(LeapStart.X, LeapStart.Y, LeapStart.Z),
+									  FVector(T.X, T.Y, LeapStart.Z), A);
+			Pos.Z += LeapArcHeight * FMath::Sin(A * PI);
+			SetActorLocation(Pos);
+
+			// Face the host and stretch forward like a lunging tendril.
+			FVector Dir = T - GetActorLocation();
+			Dir.Z = 0.f;
+			if (!Dir.IsNearlyZero())
+			{
+				SetActorRotation(Dir.Rotation());
+			}
+			if (SymbioteMesh)
+			{
+				const float Lunge = FMath::Sin(A * PI); // 0 -> 1 -> 0 across the arc
+				SymbioteMesh->SetRelativeScale3D(FVector(60.f * (1.f + 0.6f * Lunge),
+														60.f * (1.f - 0.25f * Lunge),
+														60.f * (1.f - 0.25f * Lunge)));
+				for (UMaterialInstanceDynamic* MID : SymbioteMIDs)
+				{
+					if (MID)
+					{
+						MID->SetScalarParameterValue(TEXT("Pulse"), 1.f); // rim glows hot
+					}
+				}
+			}
+
+			if (A >= 1.f)
+			{
+				AMobEnemy* Landed = LeapTarget;
+				bLeaping = false;
+				LandOnHost(Landed);
+			}
+		}
+		return; // freeze normal parasite/host logic during the pounce
+	}
+
 	// Remember where we're heading — that's where attacks fire.
 	{
 		FVector Vel = GetVelocity();
@@ -371,6 +427,19 @@ void AParasitePawn::Tick(float DeltaSeconds)
 	}
 	else
 	{
+		// Fresh possession: the symbiote floods over the host — pop it to full size.
+		if (bEnveloping && HostGoblinMesh)
+		{
+			EnvelopElapsed += DeltaSeconds;
+			const float E = FMath::Clamp(EnvelopElapsed / 0.18f, 0.f, 1.f);
+			HostGoblinMesh->SetRelativeScale3D(FVector(FMath::Lerp(0.4f, 1.3f, E)));
+			if (E >= 1.f)
+			{
+				bEnveloping = false;
+				HostGoblinMesh->SetRelativeScale3D(FVector(1.3f));
+			}
+		}
+
 		// Host goblin: face movement, switch walk/idle, and keep the red rim lit.
 		const float T = GetWorld()->GetTimeSeconds();
 		for (UMaterialInstanceDynamic* MID : HostMIDs)
@@ -453,21 +522,25 @@ void AParasitePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void AParasitePawn::MoveForward(const FInputActionValue& Value)
 {
+	if (bLeaping) { return; }
 	AddMovementInput(FVector::ForwardVector, Value.Get<float>());
 }
 
 void AParasitePawn::MoveBackward(const FInputActionValue& Value)
 {
+	if (bLeaping) { return; }
 	AddMovementInput(FVector::ForwardVector, -Value.Get<float>());
 }
 
 void AParasitePawn::MoveLeft(const FInputActionValue& Value)
 {
+	if (bLeaping) { return; }
 	AddMovementInput(FVector::RightVector, -Value.Get<float>());
 }
 
 void AParasitePawn::MoveRight(const FInputActionValue& Value)
 {
+	if (bLeaping) { return; }
 	AddMovementInput(FVector::RightVector, Value.Get<float>());
 }
 
@@ -519,7 +592,7 @@ void AParasitePawn::SelectNextHost(const FInputActionValue& Value)
 
 void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 {
-	if (bChoosingAugment)
+	if (bChoosingAugment || bLeaping)
 	{
 		return;
 	}
@@ -589,13 +662,57 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 		return;
 	}
 
-	// Wear the host: adopt its body, jump to its position, consume the mob.
+	// Don't teleport — pounce. The symbiote leaps onto the host, then latches.
+	StartLeap(Host);
+}
+
+void AParasitePawn::StartLeap(AMobEnemy* Host)
+{
+	bLeaping = true;
+	LeapTarget = Host;
+	LeapStart = GetActorLocation();
+	LeapElapsed = 0.f;
+	bInvulnerable = true; // untouchable mid-air during the pounce
+
+	if (Movement)
+	{
+		Movement->Velocity = FVector::ZeroVector;
+	}
+	SetSelectedTarget(nullptr);
+
+	// A guttural symbiote lunge — the scary possess sound carries through the arc.
+	UGameplayStatics::PlaySound2D(this, PossessSound, 0.9f);
+}
+
+void AParasitePawn::LandOnHost(AMobEnemy* Host)
+{
+	if (!Host)
+	{
+		// Target died mid-air — drop back to a bare parasite.
+		bInvulnerable = false;
+		if (SymbioteMesh)
+		{
+			SymbioteMesh->SetRelativeScale3D(FVector(60.f));
+		}
+		return;
+	}
+
+	// Snap onto the host's spot and wear its body.
 	const FVector HostLoc = Host->GetActorLocation();
-	SetActorLocation(FVector(HostLoc.X, HostLoc.Y, GetActorLocation().Z));
+	SetActorLocation(FVector(HostLoc.X, HostLoc.Y, LeapStart.Z));
 
 	bIsPossessing = true;
+	bInvulnerable = false;
 	bHostRanged = Host->IsRanged();
 	EnterHostForm();
+
+	// Envelop pop: the symbiote floods over the host, swelling it to full size.
+	if (HostGoblinMesh)
+	{
+		HostGoblinMesh->SetRelativeScale3D(FVector(0.4f));
+	}
+	bEnveloping = true;
+	EnvelopElapsed = 0.f;
 
 	// Inherit the host's current HP (possess a healthy one!).
 	MaxHealth = Host->GetMaxHealth();
@@ -605,11 +722,10 @@ void AParasitePawn::PerformPossess(const FInputActionValue& Value)
 	bPossessReady = false;
 	GetWorldTimerManager().SetTimer(PossessCDTimer, this, &AParasitePawn::OnPossessReady, PossessCooldown, false);
 
-	SetSelectedTarget(nullptr);
 	Host->Destroy();
 
-	UGameplayStatics::PlaySound2D(this, PossessSound, 0.8f);
-	AddCameraShake(6.f, 0.22f);
+	// Impact: a heavier shake on the latch.
+	AddCameraShake(11.f, 0.3f);
 
 	if (GEngine)
 	{
@@ -636,6 +752,8 @@ void AParasitePawn::SetSelectedTarget(AMobEnemy* NewTarget)
 
 void AParasitePawn::PerformAttack()
 {
+	if (bLeaping) { return; } // no attacking mid-pounce
+
 	// Stats depend on the current form.
 	const bool bHost = bIsPossessing;
 	const float Range = bHost ? HostAttackRange : ParasiteAttackRange;
