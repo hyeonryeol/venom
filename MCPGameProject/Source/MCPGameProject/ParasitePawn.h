@@ -159,6 +159,10 @@ protected:
 	void StartLeap(AMobEnemy* Host);
 	void LandOnHost(AMobEnemy* Host);
 
+	// Swap between the humanoid symbiote and the liquid goo blob (BodyMesh).
+	void EnterLiquidForm();
+	void EndLiquidForm();
+
 	// --- Attack (auto-pulse; stats depend on current form) ---
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackInterval = 0.6f;

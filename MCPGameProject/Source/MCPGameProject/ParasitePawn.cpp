@@ -330,10 +330,7 @@ void AParasitePawn::Tick(float DeltaSeconds)
 			// Host vanished before we reached it — abort the pounce.
 			bLeaping = false;
 			bInvulnerable = false;
-			if (SymbioteMesh)
-			{
-				SymbioteMesh->SetRelativeScale3D(FVector(60.f));
-			}
+			EndLiquidForm();
 		}
 		else
 		{
@@ -347,45 +344,46 @@ void AParasitePawn::Tick(float DeltaSeconds)
 				SetActorRotation(Dir.Rotation());
 			}
 
-			for (UMaterialInstanceDynamic* MID : SymbioteMIDs)
+			// The whole pounce is a blob of living goo (BodyMesh sphere), not the
+			// humanoid symbiote — so it actually reads as liquid.
+			if (BodyMID)
 			{
-				if (MID)
-				{
-					MID->SetScalarParameterValue(TEXT("Pulse"), 1.f); // rim glows hot
-				}
+				BodyMID->SetScalarParameterValue(TEXT("Pulse"), 1.f); // rim glows hot
 			}
 
 			if (LeapElapsed < LeapWindup)
 			{
-				// --- Phase 0: LIQUEFY in place. The symbiote melts into a wide
-				// puddle, then surges up into a tall wobbling liquid column. ---
+				// --- Phase 0: LIQUEFY in place. The goo melts into a wide puddle,
+				// then surges up into a tall wobbling liquid column. ---
 				SetActorLocation(FVector(LeapStart.X, LeapStart.Y, LeapStart.Z));
 
-				if (SymbioteMesh)
+				if (BodyMesh)
 				{
 					const float W = FMath::Clamp(LeapElapsed / FMath::Max(LeapWindup, 0.0001f), 0.f, 1.f);
-					const float Wob = 0.16f * FMath::Sin(W * 40.f); // liquid ripple
+					const float Wob = 0.12f * FMath::Sin(W * 40.f); // liquid ripple
 
 					float SZ, SXY;
 					if (W < 0.45f)
 					{
 						const float K = W / 0.45f;                 // melt down into a puddle
-						SZ = FMath::Lerp(1.0f, 0.4f, K);
-						SXY = FMath::Lerp(1.0f, 1.6f, K);
+						SZ = FMath::Lerp(0.8f, 0.32f, K);
+						SXY = FMath::Lerp(0.8f, 1.35f, K);
 					}
 					else
 					{
 						const float K = (W - 0.45f) / 0.55f;       // surge up into a column
-						SZ = FMath::Lerp(0.4f, 2.4f, K);
-						SXY = FMath::Lerp(1.6f, 0.5f, K);
+						SZ = FMath::Lerp(0.32f, 1.9f, K);
+						SXY = FMath::Lerp(1.35f, 0.5f, K);
 					}
-					SymbioteMesh->SetRelativeScale3D(FVector(60.f * (SXY - Wob), 60.f * (SXY + Wob), 60.f * (SZ + Wob)));
-					SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+					BodyMesh->SetRelativeScale3D(FVector(SXY - Wob, SXY + Wob, SZ + Wob));
+					// Keep the blob's base near the ground as it grows.
+					BodyMesh->SetRelativeLocation(FVector(0.f, 0.f, 50.f * SZ - 40.f));
 				}
 			}
 			else
 			{
-				// --- Phase 1: FLIGHT. Arc onto the host, slinging forward. ---
+				// --- Phase 1: FLIGHT. The goo droplet arcs onto the host,
+				// stretched forward along its travel like a thrown blob. ---
 				const float FA = (LeapDuration > 0.f)
 					? FMath::Clamp((LeapElapsed - LeapWindup) / LeapDuration, 0.f, 1.f) : 1.f;
 
@@ -394,17 +392,15 @@ void AParasitePawn::Tick(float DeltaSeconds)
 				Pos.Z += LeapArcHeight * FMath::Sin(FA * PI);
 				SetActorLocation(Pos);
 
-				if (SymbioteMesh)
+				if (BodyMesh)
 				{
-					const float Lunge = FMath::Sin(FA * PI);                 // 0 -> 1 -> 0
-					const float Early = FMath::Max(0.f, 1.f - FA / 0.4f);    // fading liquid streak
-					const float Wob = 0.12f * Early * FMath::Sin(FA * 44.f);
-
-					const float SX = 60.f * (1.f + 0.6f * Lunge - 0.30f * Early - Wob);
-					const float SY = 60.f * (1.f - 0.25f * Lunge - 0.30f * Early + Wob);
-					const float SZ = 60.f * (1.f - 0.25f * Lunge + 0.90f * Early + Wob);
-					SymbioteMesh->SetRelativeScale3D(FVector(SX, SY, SZ));
-					SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+					const float Lunge = FMath::Sin(FA * PI);       // 0 -> 1 -> 0
+					// Elongate along the direction of travel (local X after facing).
+					const float SX = 0.8f * (1.f + 1.0f * Lunge);
+					const float SY = 0.8f * (1.f - 0.30f * Lunge);
+					const float SZ = 0.8f * (1.f - 0.30f * Lunge);
+					BodyMesh->SetRelativeScale3D(FVector(SX, SY, SZ));
+					BodyMesh->SetRelativeLocation(FVector(0.f, 0.f, 0.f));
 				}
 
 				if (FA >= 1.f)
@@ -723,8 +719,36 @@ void AParasitePawn::StartLeap(AMobEnemy* Host)
 	}
 	SetSelectedTarget(nullptr);
 
+	// Become liquid: swap the humanoid mesh for the goo blob for the whole pounce.
+	EnterLiquidForm();
+
 	// A guttural symbiote lunge — the scary possess sound carries through the arc.
 	UGameplayStatics::PlaySound2D(this, PossessSound, 0.9f);
+}
+
+void AParasitePawn::EnterLiquidForm()
+{
+	SetParasiteVisible(false); // hide the humanoid symbiote
+	if (BodyMesh)
+	{
+		BodyMesh->SetVisibility(true);
+	}
+}
+
+void AParasitePawn::EndLiquidForm()
+{
+	if (BodyMesh)
+	{
+		BodyMesh->SetVisibility(false);
+		BodyMesh->SetRelativeScale3D(FVector(0.8f));
+		BodyMesh->SetRelativeLocation(FVector::ZeroVector);
+	}
+	if (SymbioteMesh)
+	{
+		SymbioteMesh->SetRelativeScale3D(FVector(60.f));
+		SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+	}
+	SetParasiteVisible(true);
 }
 
 void AParasitePawn::LandOnHost(AMobEnemy* Host)
@@ -733,10 +757,7 @@ void AParasitePawn::LandOnHost(AMobEnemy* Host)
 	{
 		// Target died mid-air — drop back to a bare parasite.
 		bInvulnerable = false;
-		if (SymbioteMesh)
-		{
-			SymbioteMesh->SetRelativeScale3D(FVector(60.f));
-		}
+		EndLiquidForm();
 		return;
 	}
 
@@ -747,6 +768,14 @@ void AParasitePawn::LandOnHost(AMobEnemy* Host)
 	bIsPossessing = true;
 	bInvulnerable = false;
 	bHostRanged = Host->IsRanged();
+
+	// Put the goo blob away; the host body takes over.
+	if (BodyMesh)
+	{
+		BodyMesh->SetVisibility(false);
+		BodyMesh->SetRelativeScale3D(FVector(0.8f));
+		BodyMesh->SetRelativeLocation(FVector::ZeroVector);
+	}
 	EnterHostForm();
 
 	// Envelop pop: the symbiote floods over the host, swelling it to full size.
