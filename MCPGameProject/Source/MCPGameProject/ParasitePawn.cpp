@@ -338,51 +338,81 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		else
 		{
 			const FVector T = LeapTarget->GetActorLocation();
-			FVector Pos = FMath::Lerp(FVector(LeapStart.X, LeapStart.Y, LeapStart.Z),
-									  FVector(T.X, T.Y, LeapStart.Z), A);
-			Pos.Z += LeapArcHeight * FMath::Sin(A * PI);
-			SetActorLocation(Pos);
 
-			// Face the host and stretch forward like a lunging tendril.
-			FVector Dir = T - GetActorLocation();
+			// Always face the host during the whole pounce.
+			FVector Dir = T - LeapStart;
 			Dir.Z = 0.f;
 			if (!Dir.IsNearlyZero())
 			{
 				SetActorRotation(Dir.Rotation());
 			}
-			if (SymbioteMesh)
+
+			for (UMaterialInstanceDynamic* MID : SymbioteMIDs)
 			{
-				const float Lunge = FMath::Sin(A * PI); // 0 -> 1 -> 0 across the arc
-
-				// Liquid takeoff: at launch the goo is drawn up off the floor into a
-				// tall, thin, wobbling column (like a droplet stretching), then it
-				// slings forward into a lunging tendril mid-arc.
-				const float TakeOff = FMath::Max(0.f, 1.f - A / 0.35f); // 1 at launch -> 0 by A=0.35
-				const float TakeOff2 = TakeOff * TakeOff;               // sharper at the very start
-				const float Jiggle = 0.12f * TakeOff * FMath::Sin(A * 46.f); // liquid ripple, mostly at launch
-
-				const float SX = 60.f * (1.f + 0.6f * Lunge - 0.35f * TakeOff2 - Jiggle);
-				const float SY = 60.f * (1.f - 0.25f * Lunge - 0.35f * TakeOff2 + Jiggle);
-				const float SZ = 60.f * (1.f - 0.25f * Lunge + 1.30f * TakeOff2 + Jiggle);
-				SymbioteMesh->SetRelativeScale3D(FVector(SX, SY, SZ));
-
-				// Trail the base downward so it looks pulled up from the ground.
-				SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f - 30.f * TakeOff2));
-
-				for (UMaterialInstanceDynamic* MID : SymbioteMIDs)
+				if (MID)
 				{
-					if (MID)
-					{
-						MID->SetScalarParameterValue(TEXT("Pulse"), 1.f); // rim glows hot
-					}
+					MID->SetScalarParameterValue(TEXT("Pulse"), 1.f); // rim glows hot
 				}
 			}
 
-			if (A >= 1.f)
+			if (LeapElapsed < LeapWindup)
 			{
-				AMobEnemy* Landed = LeapTarget;
-				bLeaping = false;
-				LandOnHost(Landed);
+				// --- Phase 0: LIQUEFY in place. The symbiote melts into a wide
+				// puddle, then surges up into a tall wobbling liquid column. ---
+				SetActorLocation(FVector(LeapStart.X, LeapStart.Y, LeapStart.Z));
+
+				if (SymbioteMesh)
+				{
+					const float W = FMath::Clamp(LeapElapsed / FMath::Max(LeapWindup, 0.0001f), 0.f, 1.f);
+					const float Wob = 0.16f * FMath::Sin(W * 40.f); // liquid ripple
+
+					float SZ, SXY;
+					if (W < 0.45f)
+					{
+						const float K = W / 0.45f;                 // melt down into a puddle
+						SZ = FMath::Lerp(1.0f, 0.4f, K);
+						SXY = FMath::Lerp(1.0f, 1.6f, K);
+					}
+					else
+					{
+						const float K = (W - 0.45f) / 0.55f;       // surge up into a column
+						SZ = FMath::Lerp(0.4f, 2.4f, K);
+						SXY = FMath::Lerp(1.6f, 0.5f, K);
+					}
+					SymbioteMesh->SetRelativeScale3D(FVector(60.f * (SXY - Wob), 60.f * (SXY + Wob), 60.f * (SZ + Wob)));
+					SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+				}
+			}
+			else
+			{
+				// --- Phase 1: FLIGHT. Arc onto the host, slinging forward. ---
+				const float FA = (LeapDuration > 0.f)
+					? FMath::Clamp((LeapElapsed - LeapWindup) / LeapDuration, 0.f, 1.f) : 1.f;
+
+				FVector Pos = FMath::Lerp(FVector(LeapStart.X, LeapStart.Y, LeapStart.Z),
+										  FVector(T.X, T.Y, LeapStart.Z), FA);
+				Pos.Z += LeapArcHeight * FMath::Sin(FA * PI);
+				SetActorLocation(Pos);
+
+				if (SymbioteMesh)
+				{
+					const float Lunge = FMath::Sin(FA * PI);                 // 0 -> 1 -> 0
+					const float Early = FMath::Max(0.f, 1.f - FA / 0.4f);    // fading liquid streak
+					const float Wob = 0.12f * Early * FMath::Sin(FA * 44.f);
+
+					const float SX = 60.f * (1.f + 0.6f * Lunge - 0.30f * Early - Wob);
+					const float SY = 60.f * (1.f - 0.25f * Lunge - 0.30f * Early + Wob);
+					const float SZ = 60.f * (1.f - 0.25f * Lunge + 0.90f * Early + Wob);
+					SymbioteMesh->SetRelativeScale3D(FVector(SX, SY, SZ));
+					SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+				}
+
+				if (FA >= 1.f)
+				{
+					AMobEnemy* Landed = LeapTarget;
+					bLeaping = false;
+					LandOnHost(Landed);
+				}
 			}
 		}
 		return; // freeze normal parasite/host logic during the pounce

@@ -141,6 +141,10 @@ protected:
 	float LeapElapsed = 0.f;
 	FVector LeapStart = FVector::ZeroVector;
 
+	// Brief "liquefy in place" windup before the pounce launches.
+	UPROPERTY(EditAnywhere, Category = "Possession")
+	float LeapWindup = 0.18f;
+
 	// Airtime of the pounce and how high the arc rises.
 	UPROPERTY(EditAnywhere, Category = "Possession")
 	float LeapDuration = 0.28f;
