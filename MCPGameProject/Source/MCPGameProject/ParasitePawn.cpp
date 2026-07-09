@@ -966,17 +966,25 @@ void AParasitePawn::PerformAttack()
 	Aim = Aim.GetSafeNormal();
 	AttackFacing = Aim; // the host turns to face this while swinging
 
-	// Ranged host: throw a projectile at the target instead of a melee wedge.
+	// Ranged host: throw projectiles at the target instead of a melee wedge.
 	if (bHost && bHostRanged)
 	{
 		if (HostProjectileClass && GetWorld())
 		{
-			const FVector Muzzle = MyLoc + FVector(0.f, 0.f, 15.f) + Aim * 10.f;
-			FActorSpawnParameters Params;
-			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-			if (AVenomProjectile* Proj = GetWorld()->SpawnActor<AVenomProjectile>(HostProjectileClass, Muzzle, Aim.Rotation(), Params))
+			const int32 Shots = FMath::Max(1, ProjectileCount);
+			const float SpreadStep = 12.f; // degrees between adjacent shots
+			const float StartAngle = -SpreadStep * (Shots - 1) * 0.5f;
+			for (int32 s = 0; s < Shots; ++s)
 			{
-				Proj->Launch(Aim, HostProjectileSpeed, HostDamage, /*bHitMobs=*/true, PiercePower);
+				const float Angle = StartAngle + SpreadStep * s;
+				const FVector Dir = Aim.RotateAngleAxis(Angle, FVector::UpVector);
+				const FVector Muzzle = MyLoc + FVector(0.f, 0.f, 15.f) + Dir * 10.f;
+				FActorSpawnParameters Params;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				if (AVenomProjectile* Proj = GetWorld()->SpawnActor<AVenomProjectile>(HostProjectileClass, Muzzle, Dir.Rotation(), Params))
+				{
+					Proj->Launch(Dir, HostProjectileSpeed, HostDamage, /*bHitMobs=*/true, PiercePower);
+				}
 			}
 		}
 		if (KnockbackSound)
@@ -1012,17 +1020,36 @@ void AParasitePawn::PerformAttack()
 		}
 	}
 
-	for (AMobEnemy* Mob : Targets)
+	if (bHost)
 	{
-		if (Knockback > 0.f)
+		// Host melee is single-target: strike only the nearest mob in the wedge.
+		AMobEnemy* MeleeTarget = nullptr;
+		float BestMeleeDistSq = TNumericLimits<float>::Max();
+		for (AMobEnemy* Mob : Targets)
 		{
-			FVector Away = Mob->GetActorLocation() - MyLoc;
-			Away.Z = 0.f;
-			Mob->ApplyKnockback(Away.GetSafeNormal() * Knockback);
+			const float DistSq = FVector::DistSquared2D(Mob->GetActorLocation(), MyLoc);
+			if (DistSq < BestMeleeDistSq)
+			{
+				BestMeleeDistSq = DistSq;
+				MeleeTarget = Mob;
+			}
 		}
-		if (Damage > 0.f)
+		if (MeleeTarget && Damage > 0.f)
 		{
-			Mob->TakeHit(Damage);
+			MeleeTarget->TakeHit(Damage);
+		}
+	}
+	else
+	{
+		// Parasite shove: knock the whole wedge back (crowd control, no damage).
+		for (AMobEnemy* Mob : Targets)
+		{
+			if (Knockback > 0.f)
+			{
+				FVector Away = Mob->GetActorLocation() - MyLoc;
+				Away.Z = 0.f;
+				Mob->ApplyKnockback(Away.GetSafeNormal() * Knockback);
+			}
 		}
 	}
 
@@ -1089,8 +1116,8 @@ void AParasitePawn::StartAugmentChoice()
 		return;
 	}
 
-	// Offer 3 distinct augments from the pool (ids 0..5).
-	TArray<int32> Pool = { 0, 1, 2, 3, 4, 5 };
+	// Offer 3 distinct augments from the pool (ids 0..6).
+	TArray<int32> Pool = { 0, 1, 2, 3, 4, 5, 6 };
 	CurrentAugmentOptions.Reset();
 	for (int32 i = 0; i < 3 && Pool.Num() > 0; ++i)
 	{
@@ -1169,6 +1196,9 @@ void AParasitePawn::ApplyAugment(int32 AugmentId)
 	case 5: // projectile pierce
 		PiercePower += 1;
 		break;
+	case 6: // extra projectile per shot
+		ProjectileCount += 1;
+		break;
 	default:
 		break;
 	}
@@ -1190,6 +1220,7 @@ FString AParasitePawn::AugmentName(int32 AugmentId) const
 	case 3: return TEXT("+100 Possess Range");
 	case 4: return TEXT("+400 Parasite Knockback");
 	case 5: return TEXT("Projectiles pierce +1 enemy");
+	case 6: return TEXT("+1 projectile per shot");
 	default: return TEXT("Unknown");
 	}
 }
@@ -1204,6 +1235,7 @@ FString AParasitePawn::AugmentTitle(int32 AugmentId) const
 	case 3: return TEXT("LONG REACH");
 	case 4: return TEXT("REPULSION");
 	case 5: return TEXT("PIERCING SHOT");
+	case 6: return TEXT("MULTISHOT");
 	default: return TEXT("UNKNOWN");
 	}
 }

@@ -205,6 +205,9 @@ protected:
 	// Extra mobs the player's projectile passes through (augment).
 	int32 PiercePower = 0;
 
+	// Projectiles fired per ranged host attack (augment increases it).
+	int32 ProjectileCount = 1;
+
 	// Attacks hit within this half-angle of the facing direction (a wedge).
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackHalfAngleDeg = 55.f;
