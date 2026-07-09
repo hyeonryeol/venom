@@ -937,7 +937,7 @@ void AParasitePawn::PerformAttack()
 
 	// Stats depend on the current form.
 	const bool bHost = bIsPossessing;
-	const float Range = bHost ? HostAttackRange : ParasiteAttackRange;
+	const float Range = bHost ? (bHostRanged ? HostRangedAttackRange : HostAttackRange) : ParasiteAttackRange;
 	const float Damage = bHost ? HostDamage : 0.f;
 	const float Knockback = bHost ? 0.f : ParasiteKnockback;
 
