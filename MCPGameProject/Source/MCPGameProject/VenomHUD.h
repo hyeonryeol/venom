@@ -23,6 +23,7 @@ public:
 protected:
 	void DrawHealthBar(AParasitePawn* Player);
 	void DrawAugmentCards(AParasitePawn* Player);
+	void DrawWaveBanner();
 
 	// Which card the mouse is over (NAME_None when none).
 	FName HoveredBox;

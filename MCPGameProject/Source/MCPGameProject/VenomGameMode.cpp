@@ -111,9 +111,10 @@ void AVenomGameMode::StartWave(int32 N)
 		GetWorldTimerManager().ClearTimer(HordeTimer);
 	}
 
+	// Brief flash on wave change; the HUD shows the persistent wave counter.
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(10, WaveDuration, FColor::Yellow,
+		GEngine->AddOnScreenDebugMessage(10, 2.5f, FColor::Yellow,
 			FString::Printf(TEXT("=== WAVE %d ==="), WaveIndex));
 	}
 }

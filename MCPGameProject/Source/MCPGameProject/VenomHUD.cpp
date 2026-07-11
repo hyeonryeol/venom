@@ -2,9 +2,11 @@
 
 #include "VenomHUD.h"
 #include "ParasitePawn.h"
+#include "VenomGameMode.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
+#include "Kismet/GameplayStatics.h"
 
 namespace
 {
@@ -33,6 +35,7 @@ void AVenomHUD::DrawHUD()
 	}
 
 	DrawHealthBar(Player);
+	DrawWaveBanner();
 
 	if (Player->IsChoosingAugment())
 	{
@@ -71,6 +74,38 @@ void AVenomHUD::DrawHealthBar(AParasitePawn* Player)
 		Player->IsPossessing() ? TEXT("HOST") : TEXT("PARASITE"),
 		FMath::Max(0.f, Player->GetHealth()), MaxHP);
 	DrawText(Label, FLinearColor::White, X + 6.f, Y - 22.f, nullptr, 1.1f);
+}
+
+void AVenomHUD::DrawWaveBanner()
+{
+	const AVenomGameMode* GM = Cast<AVenomGameMode>(UGameplayStatics::GetGameMode(this));
+	if (!GM)
+	{
+		return;
+	}
+	const int32 Wave = GM->GetCurrentWave();
+	if (Wave <= 0)
+	{
+		return;
+	}
+
+	UFont* BigFont = GEngine ? GEngine->GetLargeFont() : nullptr;
+	const FString Text = FString::Printf(TEXT("WAVE %d"), Wave);
+
+	float W = 0.f, H = 0.f;
+	GetTextSize(Text, W, H, BigFont, 1.5f);
+
+	const float PadX = 22.f;
+	const float PadY = 8.f;
+	const float BoxW = W + PadX * 2.f;
+	const float BoxH = H + PadY * 2.f;
+	const float X = (Canvas->SizeX - BoxW) * 0.5f;
+	const float Y = 24.f;
+
+	// Dark pill + red underline, matching the augment-card look.
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), X, Y, BoxW, BoxH);
+	DrawRect(AccentRed, X, Y + BoxH - 3.f, BoxW, 3.f);
+	DrawText(Text, TitleColor, X + PadX, Y + PadY, BigFont, 1.5f);
 }
 
 void AVenomHUD::DrawAugmentCards(AParasitePawn* Player)
