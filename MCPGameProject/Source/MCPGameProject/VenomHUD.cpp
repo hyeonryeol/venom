@@ -106,6 +106,14 @@ void AVenomHUD::DrawWaveBanner()
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), X, Y, BoxW, BoxH);
 	DrawRect(AccentRed, X, Y + BoxH - 3.f, BoxW, 3.f);
 	DrawText(Text, TitleColor, X + PadX, Y + PadY, BigFont, 1.5f);
+
+	// Countdown to the next wave, just under the banner.
+	UFont* MidFont = GEngine ? GEngine->GetMediumFont() : nullptr;
+	const int32 Secs = FMath::CeilToInt(GM->GetWaveTimeRemaining());
+	const FString Sub = FString::Printf(TEXT("NEXT WAVE IN %ds"), Secs);
+	float SW = 0.f, SH = 0.f;
+	GetTextSize(Sub, SW, SH, MidFont, 1.0f);
+	DrawText(Sub, DescColor, (Canvas->SizeX - SW) * 0.5f, Y + BoxH + 6.f, MidFont, 1.0f);
 }
 
 void AVenomHUD::DrawAugmentCards(AParasitePawn* Player)

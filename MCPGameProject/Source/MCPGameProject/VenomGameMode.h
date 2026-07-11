@@ -18,6 +18,9 @@ public:
 
 	int32 GetCurrentWave() const { return WaveIndex; }
 
+	/** Seconds until the next wave begins. */
+	float GetWaveTimeRemaining() const;
+
 protected:
 	virtual void BeginPlay() override;
 

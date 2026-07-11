@@ -35,6 +35,15 @@ void AVenomGameMode::NextWave()
 	StartWave(WaveIndex + 1);
 }
 
+float AVenomGameMode::GetWaveTimeRemaining() const
+{
+	if (const UWorld* World = GetWorld())
+	{
+		return FMath::Max(0.f, World->GetTimerManager().GetTimerRemaining(WaveTimer));
+	}
+	return 0.f;
+}
+
 void AVenomGameMode::StartWave(int32 N)
 {
 	WaveIndex = FMath::Max(1, N);
