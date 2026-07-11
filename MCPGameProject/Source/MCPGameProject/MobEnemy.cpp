@@ -120,16 +120,14 @@ void AMobEnemy::BeginPlay()
 
 	Health = MaxHealth;
 
-	// Roll a movement variant (independent of melee/ranged): runner or jumper.
-	const float Roll = FMath::FRand();
-	if (RunAnim && Roll < RunnerChance)
+	// The movement variant is assigned by the wave director before spawn finished.
+	if (bRunner && RunAnim)
 	{
-		bRunner = true;
 		MoveSpeed *= RunSpeedMultiplier;
 	}
-	else if (JumpAnim && Roll < RunnerChance + JumperChance)
+	else
 	{
-		bJumper = true;
+		bRunner = false; // no run anim -> fall back to a walker
 	}
 
 	PlayLoop(LocoAnim());

@@ -37,6 +37,9 @@ public:
 	float GetMaxHealth() const { return MaxHealth; }
 	bool IsRanged() const { return bRanged; }
 
+	/** Assign the movement variant before spawn finishes (wave director controls this). */
+	void SetVariant(bool bInRunner, bool bInJumper) { bRunner = bInRunner; bJumper = bInJumper; }
+
 protected:
 	virtual void BeginPlay() override;
 

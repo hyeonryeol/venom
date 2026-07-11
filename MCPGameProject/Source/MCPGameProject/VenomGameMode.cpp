@@ -1,4 +1,4 @@
-// venom — Game mode: makes the parasite the player pawn and spawns mobs.
+// venom — Game mode: makes the parasite the player pawn and runs the wave director.
 
 #include "VenomGameMode.h"
 #include "ParasitePawn.h"
@@ -8,6 +8,7 @@
 #include "VenomHUD.h"
 
 #include "Kismet/GameplayStatics.h"
+#include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "TimerManager.h"
 
@@ -24,48 +25,197 @@ void AVenomGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Start the drip-feed of chasers a second after play begins.
-	GetWorldTimerManager().SetTimer(SpawnTimer, this, &AVenomGameMode::SpawnMob, SpawnInterval, true, 1.0f);
+	// Wave 1 begins a beat after play starts; waves advance on WaveTimer.
+	GetWorldTimerManager().SetTimer(WaveTimer, this, &AVenomGameMode::NextWave, WaveDuration, true, WaveDuration);
+	StartWave(1);
+}
+
+void AVenomGameMode::NextWave()
+{
+	StartWave(WaveIndex + 1);
+}
+
+void AVenomGameMode::StartWave(int32 N)
+{
+	WaveIndex = FMath::Max(1, N);
+	const int32 W = WaveIndex;
+
+	// Defaults: basic melee walkers only.
+	bCurRunner = bCurJumper = bCurRanged = false;
+	CurRunnerChance = CurJumperChance = CurRangedChance = 0.f;
+	bCurHorde = false;
+
+	if (W == 1)
+	{
+		// Ease-in: plain goblins.
+		CurSpawnInterval = 1.7f;
+		CurMaxMobs = 12;
+	}
+	else if (W == 2)
+	{
+		// Introduce the movers: runners and jumpers.
+		bCurRunner = bCurJumper = true;
+		CurRunnerChance = 0.28f;
+		CurJumperChance = 0.28f;
+		CurSpawnInterval = 1.45f;
+		CurMaxMobs = 18;
+	}
+	else if (W == 3)
+	{
+		// Introduce ranged goblins.
+		bCurRunner = bCurJumper = bCurRanged = true;
+		CurRunnerChance = 0.22f;
+		CurJumperChance = 0.22f;
+		CurRangedChance = 0.28f;
+		CurSpawnInterval = 1.25f;
+		CurMaxMobs = 24;
+	}
+	else if (W == 4)
+	{
+		// Hordes: clusters charge in from one side.
+		bCurRunner = bCurJumper = bCurRanged = true;
+		CurRunnerChance = 0.22f;
+		CurJumperChance = 0.22f;
+		CurRangedChance = 0.25f;
+		CurSpawnInterval = 1.15f;
+		CurMaxMobs = 30;
+		bCurHorde = true;
+		CurHordeInterval = 11.f;
+		CurHordeSize = 10;
+	}
+	else
+	{
+		// Wave 5+: everything, escalating density and bigger, more frequent hordes.
+		const int32 X = W - 4;
+		bCurRunner = bCurJumper = bCurRanged = true;
+		CurRunnerChance = 0.22f;
+		CurJumperChance = 0.22f;
+		CurRangedChance = 0.28f;
+		CurSpawnInterval = FMath::Max(0.5f, 1.1f - X * 0.06f);
+		CurMaxMobs = FMath::Min(60, 30 + X * 4);
+		bCurHorde = true;
+		CurHordeInterval = FMath::Max(6.f, 10.f - X * 0.5f);
+		CurHordeSize = FMath::Min(22, 10 + X * 2);
+	}
+
+	// (Re)arm the trickle spawn timer at the wave's cadence.
+	GetWorldTimerManager().SetTimer(SpawnTimer, this, &AVenomGameMode::SpawnMob, CurSpawnInterval, true, 0.5f);
+
+	// (Re)arm or clear the horde timer.
+	if (bCurHorde)
+	{
+		GetWorldTimerManager().SetTimer(HordeTimer, this, &AVenomGameMode::SpawnHorde, CurHordeInterval, true, CurHordeInterval);
+	}
+	else
+	{
+		GetWorldTimerManager().ClearTimer(HordeTimer);
+	}
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(10, WaveDuration, FColor::Yellow,
+			FString::Printf(TEXT("=== WAVE %d ==="), WaveIndex));
+	}
+}
+
+int32 AVenomGameMode::CountAliveMobs() const
+{
+	int32 Count = 0;
+	for (TActorIterator<AMobEnemy> It(GetWorld()); It; ++It)
+	{
+		++Count;
+	}
+	return Count;
+}
+
+FVector AVenomGameMode::RingSpawnLocation(float AngleRad, float Radius) const
+{
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	const FVector PlayerLoc = Player ? Player->GetActorLocation() : FVector::ZeroVector;
+	const FVector Offset(FMath::Cos(AngleRad), FMath::Sin(AngleRad), 0.f);
+	return PlayerLoc + Offset * Radius;
+}
+
+AMobEnemy* AVenomGameMode::SpawnOne(TSubclassOf<AMobEnemy> Class, const FVector& Loc, bool bRunner, bool bJumper)
+{
+	UWorld* World = GetWorld();
+	if (!World || !Class)
+	{
+		return nullptr;
+	}
+
+	const FTransform Xform(FRotator::ZeroRotator, Loc);
+	AMobEnemy* Mob = World->SpawnActorDeferred<AMobEnemy>(
+		Class, Xform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
+	if (Mob)
+	{
+		Mob->SetVariant(bRunner, bJumper);
+		UGameplayStatics::FinishSpawningActor(Mob, Xform);
+	}
+	return Mob;
 }
 
 void AVenomGameMode::SpawnMob()
 {
 	UWorld* World = GetWorld();
-	if (!World || !MobClass)
+	if (!World || !MobClass || !UGameplayStatics::GetPlayerPawn(this, 0))
+	{
+		return;
+	}
+	if (CountAliveMobs() >= CurMaxMobs)
 	{
 		return;
 	}
 
-	APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
-	if (!Player)
-	{
-		return;
-	}
-
-	// Respect the alive-mob cap.
-	int32 Count = 0;
-	for (TActorIterator<AMobEnemy> It(World); It; ++It)
-	{
-		++Count;
-	}
-	if (Count >= MaxMobs)
-	{
-		return;
-	}
-
-	// Spawn on a ring around the player so they close in from the edges.
-	const float Angle = FMath::FRandRange(0.f, 2.f * PI);
-	const FVector Offset(FMath::Cos(Angle), FMath::Sin(Angle), 0.f);
-	const FVector PlayerLoc = Player->GetActorLocation();
-	const FVector SpawnLoc = PlayerLoc + Offset * SpawnRadius;
-
-	FActorSpawnParameters Params;
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
+	// Pick class: ranged or melee.
 	TSubclassOf<AMobEnemy> ToSpawn = MobClass;
-	if (RangedMobClass && FMath::FRand() < RangedChance)
+	if (bCurRanged && RangedMobClass && FMath::FRand() < CurRangedChance)
 	{
 		ToSpawn = RangedMobClass;
 	}
-	World->SpawnActor<AMobEnemy>(ToSpawn, SpawnLoc, FRotator::ZeroRotator, Params);
+
+	// Pick a movement variant (runner or jumper, else basic walker).
+	bool bRunner = false;
+	bool bJumper = false;
+	if (bCurRunner || bCurJumper)
+	{
+		const float R = FMath::FRand();
+		if (bCurJumper && R < CurJumperChance)
+		{
+			bJumper = true;
+		}
+		else if (bCurRunner && R < CurJumperChance + CurRunnerChance)
+		{
+			bRunner = true;
+		}
+	}
+
+	const float Angle = FMath::FRandRange(0.f, 2.f * PI);
+	SpawnOne(ToSpawn, RingSpawnLocation(Angle, SpawnRadius), bRunner, bJumper);
+}
+
+void AVenomGameMode::SpawnHorde()
+{
+	UWorld* World = GetWorld();
+	if (!World || !MobClass || !UGameplayStatics::GetPlayerPawn(this, 0))
+	{
+		return;
+	}
+
+	// A pack rushes in from one direction — mostly plain goblins for a clean swarm.
+	const float BaseAngle = FMath::FRandRange(0.f, 2.f * PI);
+	const int32 Cap = CurMaxMobs + CurHordeSize; // hordes may briefly exceed the trickle cap
+	for (int32 i = 0; i < CurHordeSize; ++i)
+	{
+		if (CountAliveMobs() >= Cap)
+		{
+			break;
+		}
+		const float Angle = BaseAngle + FMath::FRandRange(-0.5f, 0.5f);
+		const float Radius = SpawnRadius + FMath::FRandRange(-150.f, 150.f);
+
+		// A few runners salt the pack from wave 4 on; the rest are basic walkers.
+		const bool bRunner = bCurRunner && FMath::FRand() < 0.25f;
+		SpawnOne(MobClass, RingSpawnLocation(Angle, Radius), bRunner, /*bJumper=*/false);
+	}
 }

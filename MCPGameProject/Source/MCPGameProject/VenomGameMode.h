@@ -1,4 +1,4 @@
-// venom — Game mode: makes the parasite the player pawn and spawns mobs.
+// venom — Game mode: makes the parasite the player pawn and runs the wave director.
 
 #pragma once
 
@@ -16,11 +16,27 @@ class MCPGAMEPROJECT_API AVenomGameMode : public AGameModeBase
 public:
 	AVenomGameMode();
 
+	int32 GetCurrentWave() const { return WaveIndex; }
+
 protected:
 	virtual void BeginPlay() override;
 
-	/** Spawns one mob on a ring around the player, up to MaxMobs alive. */
+	// --- Wave director ---
+	/** Begin wave N: reconfigure spawn cadence, allowed types, and hordes. */
+	void StartWave(int32 N);
+	void NextWave();
+
+	/** Spawns one mob on the ring, up to the wave's alive cap. */
 	void SpawnMob();
+
+	/** Spawns a cluster of goblins charging in from one direction. */
+	void SpawnHorde();
+
+	/** Spawn helper: deferred so the movement variant is set before BeginPlay. */
+	AMobEnemy* SpawnOne(TSubclassOf<AMobEnemy> Class, const FVector& Loc, bool bRunner, bool bJumper);
+
+	int32 CountAliveMobs() const;
+	FVector RingSpawnLocation(float AngleRad, float Radius) const;
 
 	UPROPERTY(EditAnywhere, Category = "Spawn")
 	TSubclassOf<AMobEnemy> MobClass;
@@ -28,18 +44,29 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Spawn")
 	TSubclassOf<AMobEnemy> RangedMobClass;
 
-	// Chance each spawn is a ranged goblin.
-	UPROPERTY(EditAnywhere, Category = "Spawn")
-	float RangedChance = 0.22f;
-
-	UPROPERTY(EditAnywhere, Category = "Spawn")
-	float SpawnInterval = 1.5f;
-
 	UPROPERTY(EditAnywhere, Category = "Spawn")
 	float SpawnRadius = 1500.f;
 
-	UPROPERTY(EditAnywhere, Category = "Spawn")
-	int32 MaxMobs = 30;
+	// Seconds each wave lasts before the next begins.
+	UPROPERTY(EditAnywhere, Category = "Wave")
+	float WaveDuration = 25.f;
 
 	FTimerHandle SpawnTimer;
+	FTimerHandle WaveTimer;
+	FTimerHandle HordeTimer;
+
+	// --- Current wave configuration (set by StartWave) ---
+	int32 WaveIndex = 0;
+
+	bool bCurRunner = false;
+	bool bCurJumper = false;
+	bool bCurRanged = false;
+	float CurRunnerChance = 0.f;
+	float CurJumperChance = 0.f;
+	float CurRangedChance = 0.f;
+	float CurSpawnInterval = 1.6f;
+	int32 CurMaxMobs = 14;
+	bool bCurHorde = false;
+	float CurHordeInterval = 12.f;
+	int32 CurHordeSize = 8;
 };
