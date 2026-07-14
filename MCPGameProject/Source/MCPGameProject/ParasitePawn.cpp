@@ -376,6 +376,12 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		}
 	}
 
+	// Host regeneration (augment): the symbiote slowly mends the worn host body.
+	if (bIsPossessing && !bDead && HostRegenRate > 0.f && Health < MaxHealth)
+	{
+		Health = FMath::Min(MaxHealth, Health + HostRegenRate * DeltaSeconds);
+	}
+
 	// Cinematic possession leap: arc onto the host, then latch on landing.
 	if (bLeaping)
 	{
@@ -1116,8 +1122,8 @@ void AParasitePawn::StartAugmentChoice()
 		return;
 	}
 
-	// Offer 3 distinct augments from the pool (ids 0..6).
-	TArray<int32> Pool = { 0, 1, 2, 3, 4, 5, 6 };
+	// Offer 3 distinct augments from the pool (ids 0..9).
+	TArray<int32> Pool = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	CurrentAugmentOptions.Reset();
 	for (int32 i = 0; i < 3 && Pool.Num() > 0; ++i)
 	{
@@ -1199,6 +1205,20 @@ void AParasitePawn::ApplyAugment(int32 AugmentId)
 	case 6: // extra projectile per shot
 		ProjectileCount += 1;
 		break;
+	case 7: // host regeneration (숙주 재생)
+		HostRegenRate += 4.f;
+		break;
+	case 8: // faster infection: shorter possess cooldown (감염 속도↑)
+		PossessCooldown = FMath::Max(2.f, PossessCooldown - 2.f);
+		break;
+	case 9: // tougher parasite: more bare-parasite HP for the eject window
+		ParasiteMaxHP += 15.f;
+		if (!bIsPossessing)
+		{
+			MaxHealth = ParasiteMaxHP;
+			Health += 15.f;
+		}
+		break;
 	default:
 		break;
 	}
@@ -1221,6 +1241,9 @@ FString AParasitePawn::AugmentName(int32 AugmentId) const
 	case 4: return TEXT("+400 Parasite Knockback");
 	case 5: return TEXT("Projectiles pierce +1 enemy");
 	case 6: return TEXT("+1 projectile per shot");
+	case 7: return TEXT("Host regenerates +4 HP/sec");
+	case 8: return TEXT("-2s possess cooldown");
+	case 9: return TEXT("+15 Parasite Max HP");
 	default: return TEXT("Unknown");
 	}
 }
@@ -1236,6 +1259,9 @@ FString AParasitePawn::AugmentTitle(int32 AugmentId) const
 	case 4: return TEXT("REPULSION");
 	case 5: return TEXT("PIERCING SHOT");
 	case 6: return TEXT("MULTISHOT");
+	case 7: return TEXT("REGENERATION");
+	case 8: return TEXT("VIRULENCE");
+	case 9: return TEXT("CARAPACE");
 	default: return TEXT("UNKNOWN");
 	}
 }

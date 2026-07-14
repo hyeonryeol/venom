@@ -212,6 +212,10 @@ protected:
 	// Projectiles fired per ranged host attack (augment increases it).
 	int32 ProjectileCount = 1;
 
+	// While possessing, the host regenerates this much HP per second (augment).
+	// The symbiote knits the host body back together — thematic "숙주 재생".
+	float HostRegenRate = 0.f;
+
 	// Attacks hit within this half-angle of the facing direction (a wedge).
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackHalfAngleDeg = 55.f;
