@@ -61,3 +61,18 @@
 - 파이썬 MCP 서버: Python 3.12 고정 (3.14 불가). venv: `C:\venom\Python\.venv`. uv: `C:\Users\이현렬\AppData\Roaming\Python\Python314\Scripts\uv.exe`.
 - MCP 설정: `C:\venom\.mcp.json`의 `unrealMCP`.
 - 경로에 한글·공백 금지 (그래서 프로젝트가 C:\venom에 있음).
+
+## 모바일 작업 (편집은 모바일, 빌드·테스트는 PC)
+UE 5.6은 Windows 전용이라 모바일/클라우드에선 **코드 편집·커밋만** 하고, **빌드·플레이 테스트는 PC**에서 한다. GitHub 레포([hyeonryeol/venom](https://github.com/hyeonryeol/venom))가 둘 사이의 동기화 통로.
+
+**모바일 편집 수단**
+- Claude 모바일 앱 / `claude.ai/code` — AI로 코드 수정 후 GitHub에 커밋·푸시 (클라우드엔 UE 없어 빌드 검증 불가).
+- `github.dev` (레포 URL의 github.com → github.dev) — 브라우저 VS Code, 빠른 수동 편집.
+- GitHub Codespaces — 좀 더 완전한 클라우드 편집기.
+
+**동기화 규칙 (충돌 방지 — 반드시)**
+1. PC 작업 **시작 전** 항상 `cd /c/venom && git pull`.
+2. 작업 **끝나면** 항상 `git commit` + `git push` (매 단계 커밋·푸시가 기본).
+3. 모바일 편집은 컴파일 검증 없이 반영됨 → 작게 나눠서 하고, 다음 PC 세션에서 `pull → 빌드 → 테스트`로 마무리.
+
+**주의**: 플레이 테스트는 PC에서만. 모바일 세션은 이 문서를 먼저 읽고 위 규칙대로 이어서 진행할 것.
