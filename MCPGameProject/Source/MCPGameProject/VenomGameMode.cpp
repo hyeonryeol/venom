@@ -4,6 +4,7 @@
 #include "ParasitePawn.h"
 #include "MobEnemy.h"
 #include "MobRangedGoblin.h"
+#include "VenomObstacle.h"
 #include "VenomPlayerController.h"
 #include "VenomHUD.h"
 
@@ -19,15 +20,47 @@ AVenomGameMode::AVenomGameMode()
 	HUDClass = AVenomHUD::StaticClass();
 	MobClass = AMobEnemy::StaticClass();
 	RangedMobClass = AMobRangedGoblin::StaticClass();
+	ObstacleClass = AVenomObstacle::StaticClass();
 }
 
 void AVenomGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Scatter cover before the first mobs arrive.
+	SpawnObstacles();
+
 	// Wave 1 begins a beat after play starts; waves advance on WaveTimer.
 	GetWorldTimerManager().SetTimer(WaveTimer, this, &AVenomGameMode::NextWave, WaveDuration, true, WaveDuration);
 	StartWave(1);
+}
+
+void AVenomGameMode::SpawnObstacles()
+{
+	UWorld* World = GetWorld();
+	if (!World || NumObstacles <= 0)
+	{
+		return;
+	}
+
+	TSubclassOf<AVenomObstacle> Class = ObstacleClass ? ObstacleClass : AVenomObstacle::StaticClass();
+
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	const FVector Center = Player ? Player->GetActorLocation() : FVector::ZeroVector;
+
+	// Golden-angle spread keeps pillars from clumping; radius jitter varies depth.
+	const float GoldenAngle = 2.399963f; // ~137.5 deg
+	for (int32 i = 0; i < NumObstacles; ++i)
+	{
+		const float Angle = i * GoldenAngle + FMath::FRandRange(-0.2f, 0.2f);
+		const float Radius = FMath::FRandRange(ObstacleMinRadius, ObstacleMaxRadius);
+		FVector Loc = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * Radius;
+		Loc.Z = Center.Z;
+
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		World->SpawnActor<AVenomObstacle>(Class, Loc, FRotator::ZeroRotator, Params);
+	}
 }
 
 void AVenomGameMode::NextWave()

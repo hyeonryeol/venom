@@ -21,8 +21,9 @@ public:
 
 	/** Launch toward Direction. bHitMobs=true -> player's shot (damages mobs);
 	 *  false -> enemy shot (damages the player). Pierce = extra mobs it passes
-	 *  through (0 = destroyed on first hit). */
-	void Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs, int32 Pierce = 0);
+	 *  through (0 = destroyed on first hit). Bounce = times it ricochets off
+	 *  obstacles before an obstacle stops it (0 = stopped by the first pillar). */
+	void Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs, int32 Pierce = 0, int32 Bounce = 0);
 
 protected:
 	virtual void BeginPlay() override;
@@ -51,6 +52,7 @@ protected:
 	bool bConsumed = false;
 	bool bLaunched = false;
 	int32 PierceRemaining = 0;
+	int32 BounceRemaining = 0;
 
 	UPROPERTY()
 	TArray<AActor*> HitActors;

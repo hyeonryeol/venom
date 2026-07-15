@@ -989,7 +989,7 @@ void AParasitePawn::PerformAttack()
 				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				if (AVenomProjectile* Proj = GetWorld()->SpawnActor<AVenomProjectile>(HostProjectileClass, Muzzle, Dir.Rotation(), Params))
 				{
-					Proj->Launch(Dir, HostProjectileSpeed, HostDamage, /*bHitMobs=*/true, PiercePower);
+					Proj->Launch(Dir, HostProjectileSpeed, HostDamage, /*bHitMobs=*/true, PiercePower, BounceCharges);
 				}
 			}
 		}
@@ -1122,8 +1122,8 @@ void AParasitePawn::StartAugmentChoice()
 		return;
 	}
 
-	// Offer 3 distinct augments from the pool (ids 0..9).
-	TArray<int32> Pool = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	// Offer 3 distinct augments from the pool (ids 0..10).
+	TArray<int32> Pool = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 	CurrentAugmentOptions.Reset();
 	for (int32 i = 0; i < 3 && Pool.Num() > 0; ++i)
 	{
@@ -1219,6 +1219,9 @@ void AParasitePawn::ApplyAugment(int32 AugmentId)
 			Health += 15.f;
 		}
 		break;
+	case 10: // projectiles ricochet off cover
+		BounceCharges += 1;
+		break;
 	default:
 		break;
 	}
@@ -1244,6 +1247,7 @@ FString AParasitePawn::AugmentName(int32 AugmentId) const
 	case 7: return TEXT("Host regenerates +4 HP/sec");
 	case 8: return TEXT("-2s possess cooldown");
 	case 9: return TEXT("+15 Parasite Max HP");
+	case 10: return TEXT("Projectiles ricochet off cover");
 	default: return TEXT("Unknown");
 	}
 }
@@ -1262,6 +1266,7 @@ FString AParasitePawn::AugmentTitle(int32 AugmentId) const
 	case 7: return TEXT("REGENERATION");
 	case 8: return TEXT("VIRULENCE");
 	case 9: return TEXT("CARAPACE");
+	case 10: return TEXT("RICOCHET");
 	default: return TEXT("UNKNOWN");
 	}
 }

@@ -37,8 +37,9 @@
 - [x] 빙의 사거리 빨간 원 = Space 눌렀는데 범위(450)에 몹 없을 때만 1.2초 표시
 - [x] **웨이브 디렉터**(`AVenomGameMode`): 웨이브별 스폰 간격/생존 캡/허용 몹 타입을 점진 상향, 주기적 **호드**(한 방향에서 무리 돌진). HUD에 웨이브 번호 + 다음 웨이브 카운트다운 표시.
 - [x] **새 몹 이동 변종**(근접/원거리와 독립적으로 롤): **러너**(RunSpeedMultiplier 1.8배 질주) / **점퍼**(주기적으로 플레이어에게 도약). `AMobEnemy::SetVariant`로 스폰 시 지정.
-- [x] **증강 10종**(id 0~9): BRUTE FORCE(+뎀)/FRENZY(+공속)/SWIFT OOZE(+이속)/LONG REACH(+빙의사거리)/REPULSION(+넉백)/PIERCING SHOT(관통)/MULTISHOT(투사체+1)/**REGENERATION(숙주 재생 +4HP/s)**/**VIRULENCE(빙의 쿨 -2s)**/**CARAPACE(기생충 최대HP +15)**. 레벨업마다 3장 중 택1.
-- [ ] 맵/아레나(시도했다 삭제 — 조명 이슈, 에셋 데모맵 권장), 증강 추가 확장, 보스/특수 웨이브
+- [x] **증강 11종**(id 0~10): BRUTE FORCE(+뎀)/FRENZY(+공속)/SWIFT OOZE(+이속)/LONG REACH(+빙의사거리)/REPULSION(+넉백)/PIERCING SHOT(관통)/MULTISHOT(투사체+1)/**REGENERATION(숙주 재생 +4HP/s)**/**VIRULENCE(빙의 쿨 -2s)**/**CARAPACE(기생충 최대HP +15)**/**RICOCHET(투사체가 엄폐물에 1회 반사)**. 레벨업마다 3장 중 택1.
+- [x] **엄폐물 필러**(`AVenomObstacle`): GameMode가 아레나에 7개 흩어 스폰(황금각 분포). 오버랩 전용 콜리전 → **폰은 자유 통과, 투사체만 차단**(navmesh 불필요). 아군/적 투사체 모두 차단돼 **양방향 엄폐**. RICOCHET 증강 시 플레이어 투사체는 원기둥 법선(중심→투사체) 기준 1회 반사.
+- [ ] 맵/아레나 지형 확장(현재는 코드 스폰 필러만 — 조명/데모맵은 미해결), 증강 추가 확장, 보스/특수 웨이브
 
 ### 핵심 튜닝 수치 (MobEnemy/ParasitePawn 기본값)
 몹 HP 125(사수 90), 접촉뎀 4/쿨1.0s, MinPlayerDistance 100. 사수: ShootRange 750, 쿨2.5s, 투사체 데미지 5/속도 600. 플레이어: HostDamage 25, AttackInterval 0.6, 부채꼴 반각 55°, 빙의 쿨 10s, 이젝트 무적 1.5s, 기생충 HP 30. 투사체: 반경 30, 총구 Z+15/전방 10.

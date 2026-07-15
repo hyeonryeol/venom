@@ -3,6 +3,7 @@
 #include "VenomProjectile.h"
 #include "ParasitePawn.h"
 #include "MobEnemy.h"
+#include "VenomObstacle.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -57,11 +58,12 @@ void AVenomProjectile::BeginPlay()
 	}
 }
 
-void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs, int32 Pierce)
+void AVenomProjectile::Launch(const FVector& Direction, float Speed, float InDamage, bool bHitMobs, int32 Pierce, int32 Bounce)
 {
 	Damage = InDamage;
 	bDamagesMobs = bHitMobs;
 	PierceRemaining = Pierce;
+	BounceRemaining = Bounce;
 	bLaunched = true; // only start hitting things once configured
 
 	const FVector Dir = Direction.GetSafeNormal();
@@ -84,6 +86,40 @@ void AVenomProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 	// any overlaps after we're spent.
 	if (!bLaunched || bConsumed)
 	{
+		return;
+	}
+
+	// Obstacles are cover for everyone: stop the shot unless it can ricochet.
+	if (AVenomObstacle* Obstacle = Cast<AVenomObstacle>(OtherActor))
+	{
+		if (BounceRemaining <= 0 || !Movement)
+		{
+			bConsumed = true;
+			CollisionComp->SetGenerateOverlapEvents(false);
+			if (Mesh)
+			{
+				Mesh->SetVisibility(false);
+			}
+			Destroy();
+			return;
+		}
+
+		--BounceRemaining;
+
+		// Reflect horizontally about the pillar's outward normal (center -> shot).
+		FVector N = GetActorLocation() - Obstacle->GetActorLocation();
+		N.Z = 0.f;
+		N = N.GetSafeNormal();
+		if (!N.IsNearlyZero())
+		{
+			const FVector V = Movement->Velocity;
+			Movement->Velocity = V - 2.f * FVector::DotProduct(V, N) * N;
+			// Nudge clear of the pillar so we don't re-enter the same overlap.
+			AddActorWorldOffset(N * 12.f, false);
+		}
+
+		// After bouncing we may strike mobs we'd already brushed — let them count.
+		HitActors.Reset();
 		return;
 	}
 

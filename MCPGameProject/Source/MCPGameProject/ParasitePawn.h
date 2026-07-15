@@ -216,6 +216,9 @@ protected:
 	// The symbiote knits the host body back together — thematic "숙주 재생".
 	float HostRegenRate = 0.f;
 
+	// Times the player's projectile ricochets off obstacles (augment).
+	int32 BounceCharges = 0;
+
 	// Attacks hit within this half-angle of the facing direction (a wedge).
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackHalfAngleDeg = 55.f;

@@ -7,6 +7,7 @@
 #include "VenomGameMode.generated.h"
 
 class AMobEnemy;
+class AVenomObstacle;
 
 UCLASS()
 class MCPGAMEPROJECT_API AVenomGameMode : public AGameModeBase
@@ -35,6 +36,9 @@ protected:
 	/** Spawns a cluster of goblins charging in from one direction. */
 	void SpawnHorde();
 
+	/** Scatters cover pillars around the arena once at play start. */
+	void SpawnObstacles();
+
 	/** Spawn helper: deferred so the movement variant is set before BeginPlay. */
 	AMobEnemy* SpawnOne(TSubclassOf<AMobEnemy> Class, const FVector& Loc, bool bRunner, bool bJumper);
 
@@ -49,6 +53,19 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Spawn")
 	float SpawnRadius = 1500.f;
+
+	// --- Obstacles (cover pillars) ---
+	UPROPERTY(EditAnywhere, Category = "Obstacles")
+	TSubclassOf<AVenomObstacle> ObstacleClass;
+
+	UPROPERTY(EditAnywhere, Category = "Obstacles")
+	int32 NumObstacles = 7;
+
+	UPROPERTY(EditAnywhere, Category = "Obstacles")
+	float ObstacleMinRadius = 400.f;
+
+	UPROPERTY(EditAnywhere, Category = "Obstacles")
+	float ObstacleMaxRadius = 1150.f;
 
 	// Seconds each wave lasts before the next begins.
 	UPROPERTY(EditAnywhere, Category = "Wave")
