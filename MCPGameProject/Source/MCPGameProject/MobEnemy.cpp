@@ -121,6 +121,22 @@ void AMobEnemy::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Snap to a fixed hover height above the floor. Spawns inherit the
+	// player's Z, which can be mid-leap (airborne) — and we keep our Z
+	// forever, so a bad start would leave this mob floating.
+	{
+		const FVector Loc = GetActorLocation();
+		FHitResult Hit;
+		FCollisionQueryParams Params;
+		Params.AddIgnoredActor(this);
+		if (GetWorld()->LineTraceSingleByChannel(Hit,
+			Loc + FVector(0.f, 0.f, 2000.f), Loc - FVector(0.f, 0.f, 5000.f),
+			ECC_Visibility, Params))
+		{
+			SetActorLocation(FVector(Loc.X, Loc.Y, Hit.Location.Z + 90.f));
+		}
+	}
+
 	Health = MaxHealth;
 
 	// The movement variant is assigned by the wave director before spawn finished.
