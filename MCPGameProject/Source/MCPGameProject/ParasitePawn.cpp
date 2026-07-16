@@ -229,6 +229,22 @@ void AParasitePawn::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// FloatingPawnMovement has no gravity, so whatever height we spawn at
+	// persists forever. Snap to a fixed hover height above the floor (the
+	// meshes are offset -40/-90, tuned for hovering ~90 above the ground).
+	{
+		const FVector Loc = GetActorLocation();
+		FHitResult Hit;
+		FCollisionQueryParams Params;
+		Params.AddIgnoredActor(this);
+		if (GetWorld()->LineTraceSingleByChannel(Hit,
+			Loc + FVector(0.f, 0.f, 2000.f), Loc - FVector(0.f, 0.f, 5000.f),
+			ECC_Visibility, Params))
+		{
+			SetActorLocation(FVector(Loc.X, Loc.Y, Hit.Location.Z + 90.f));
+		}
+	}
+
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
 		// (AVenomPlayerController already ticks input while paused, so the
