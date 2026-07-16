@@ -61,6 +61,13 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Obstacles")
 	int32 NumObstacles = 7;
 
+	// Squat boulders spawned alongside the pillars (same solid-cover behavior).
+	UPROPERTY(EditAnywhere, Category = "Obstacles")
+	int32 NumRocks = 10;
+
+	/** Floor height at a point (line trace down); keeps obstacles grounded. */
+	float GroundZAt(const FVector& Loc) const;
+
 	UPROPERTY(EditAnywhere, Category = "Obstacles")
 	float ObstacleMinRadius = 400.f;
 

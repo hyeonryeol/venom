@@ -1,4 +1,4 @@
-// venom — Arena obstacle: a stone pillar that blocks projectiles (cover).
+// venom — Arena obstacle: solid cover (pillar or boulder).
 
 #pragma once
 
@@ -6,14 +6,16 @@
 #include "GameFramework/Actor.h"
 #include "VenomObstacle.generated.h"
 
+class UStaticMesh;
 class UStaticMeshComponent;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
 
 /**
- * A pillar scattered around the arena. Pawns walk freely past it (overlap-only,
- * no navmesh snags), but projectiles are stopped by it — so it reads as cover.
- * The player's shots ricochet off it with the RICOCHET augment.
+ * Solid cover scattered around the arena. Blocks pawns (player and mobs) and
+ * stops projectiles; the player's shots ricochet off it with the RICOCHET
+ * augment. Comes in two looks: a tall pillar (default) or a squat boulder
+ * (SetRock before FinishSpawning).
  */
 UCLASS()
 class MCPGAMEPROJECT_API AVenomObstacle : public AActor
@@ -23,7 +25,10 @@ class MCPGAMEPROJECT_API AVenomObstacle : public AActor
 public:
 	AVenomObstacle();
 
-	/** Horizontal radius of the pillar surface (for projectile reflection). */
+	/** Turn this pillar into a half-buried boulder (call before FinishSpawning). */
+	void SetRock(bool bInRock) { bRock = bInRock; }
+
+	/** Horizontal radius of the blocking surface (for projectile reflection). */
 	float GetBlockRadius() const { return BlockRadius; }
 
 protected:
@@ -37,6 +42,14 @@ protected:
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* MID;
+
+	UPROPERTY()
+	UStaticMesh* CylinderMesh;
+
+	UPROPERTY()
+	UStaticMesh* SphereMesh;
+
+	bool bRock = false;
 
 	UPROPERTY(EditAnywhere, Category = "Obstacle")
 	float BlockRadius = 90.f;

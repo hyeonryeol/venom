@@ -21,8 +21,11 @@ AMobEnemy::AMobEnemy()
 
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComp"));
 	CollisionComp->InitSphereRadius(45.f);
-	// Overlap the player (for possession) but don't block movement.
+	// Overlap the player (for possession) but don't block movement — EXCEPT
+	// solid cover: as a Pawn that blocks WorldStatic, obstacles stop us too.
 	CollisionComp->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	CollisionComp->SetCollisionObjectType(ECC_Pawn);
+	CollisionComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
 	RootComponent = CollisionComp;
 
 	BodyMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("BodyMesh"));
@@ -273,7 +276,8 @@ void AMobEnemy::Tick(float DeltaSeconds)
 
 	if (!NewLoc.Equals(MyLoc))
 	{
-		SetActorLocation(NewLoc, /*bSweep=*/false);
+		// Sweep so solid cover (pillars/boulders) stops us instead of clipping.
+		SetActorLocation(NewLoc, /*bSweep=*/true);
 	}
 	KnockbackVelocity = FMath::VInterpTo(KnockbackVelocity, FVector::ZeroVector, DeltaSeconds, KnockbackDecay);
 

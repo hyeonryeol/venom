@@ -1,4 +1,4 @@
-// venom — Arena obstacle: a stone pillar that blocks projectiles (cover).
+// venom — Arena obstacle: solid cover (pillar or boulder).
 
 #include "VenomObstacle.h"
 
@@ -13,23 +13,32 @@ AVenomObstacle::AVenomObstacle()
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	RootComponent = Mesh;
+	Mesh->SetMobility(EComponentMobility::Movable); // spawned + reshaped at runtime
 
-	// A tall pillar. Basic cylinder is r50 / h100 at scale 1 -> r90 / h350 here.
+	// Pillar default: cylinder r50/h100 at scale 1 -> r90 / h350 here.
 	Mesh->SetRelativeScale3D(FVector(1.8f, 1.8f, 3.5f));
-	// Lift the mesh so its base sits near the actor origin (ground plane); the
-	// collision then spans a little below the pawns up past projectile height.
+	// Lift so the base sits slightly below the actor origin (ground plane).
 	Mesh->SetRelativeLocation(FVector(0.f, 0.f, 150.f));
 	Mesh->SetCastShadow(true);
 
-	// Overlap-only: projectiles get an overlap event (and decide to bounce/stop);
-	// pawns pass through so there are no navmesh/steering snags.
-	Mesh->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	// Solid to pawns (player AND mobs), overlap for everything else so
+	// projectiles still get their overlap event and can bounce/stop in code.
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	Mesh->SetCollisionObjectType(ECC_WorldStatic);
+	Mesh->SetCollisionResponseToAllChannels(ECR_Overlap);
+	Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+	Mesh->SetGenerateOverlapEvents(true);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylFinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 	if (CylFinder.Succeeded())
 	{
-		Mesh->SetStaticMesh(CylFinder.Object);
+		CylinderMesh = CylFinder.Object;
+		Mesh->SetStaticMesh(CylinderMesh);
+	}
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereFinder(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+	if (SphereFinder.Succeeded())
+	{
+		SphereMesh = SphereFinder.Object;
 	}
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TintFinder(TEXT("/Game/Materials/M_VenomTint.M_VenomTint"));
@@ -43,11 +52,25 @@ void AVenomObstacle::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (bRock)
+	{
+		// Squat half-buried boulder: wide squashed sphere, lower profile.
+		if (SphereMesh)
+		{
+			Mesh->SetStaticMesh(SphereMesh);
+		}
+		Mesh->SetRelativeScale3D(FVector(3.4f, 2.7f, 1.9f));
+		Mesh->SetRelativeLocation(FVector(0.f, 0.f, 40.f)); // sunk into the ground
+		BlockRadius = 150.f;
+	}
+
 	if (TintMaterial && Mesh)
 	{
 		MID = UMaterialInstanceDynamic::Create(TintMaterial, this);
 		Mesh->SetMaterial(0, MID);
-		// Dark slate stone (low value keeps M_VenomTint's emissive term dim).
-		MID->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.05f, 0.055f, 0.07f));
+		// Low values keep M_VenomTint's emissive term dim (reads as stone).
+		MID->SetVectorParameterValue(TEXT("Color"),
+			bRock ? FLinearColor(0.10f, 0.095f, 0.12f)   // lighter slate boulder
+				  : FLinearColor(0.05f, 0.055f, 0.07f)); // dark pillar
 	}
 }

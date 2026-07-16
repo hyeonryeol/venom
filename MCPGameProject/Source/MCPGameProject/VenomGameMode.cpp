@@ -35,10 +35,26 @@ void AVenomGameMode::BeginPlay()
 	StartWave(1);
 }
 
+float AVenomGameMode::GroundZAt(const FVector& Loc) const
+{
+	if (const UWorld* World = GetWorld())
+	{
+		FHitResult Hit;
+		const FVector Start = FVector(Loc.X, Loc.Y, 2000.f);
+		const FVector End = FVector(Loc.X, Loc.Y, -5000.f);
+		if (World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility))
+		{
+			return Hit.Location.Z;
+		}
+	}
+	return 0.f;
+}
+
 void AVenomGameMode::SpawnObstacles()
 {
 	UWorld* World = GetWorld();
-	if (!World || NumObstacles <= 0)
+	const int32 Total = NumObstacles + NumRocks;
+	if (!World || Total <= 0)
 	{
 		return;
 	}
@@ -52,18 +68,23 @@ void AVenomGameMode::SpawnObstacles()
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 	const FVector Center = Player ? Player->GetActorLocation() : FVector::ZeroVector;
 
-	// Golden-angle spread keeps pillars from clumping; radius jitter varies depth.
+	// Golden-angle spread keeps cover from clumping; radius jitter varies depth.
 	const float GoldenAngle = 2.399963f; // ~137.5 deg
-	for (int32 i = 0; i < NumObstacles; ++i)
+	for (int32 i = 0; i < Total; ++i)
 	{
 		const float Angle = i * GoldenAngle + FMath::FRandRange(-0.2f, 0.2f);
 		const float Radius = FMath::FRandRange(ObstacleMinRadius, ObstacleMaxRadius);
 		FVector Loc = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * Radius;
-		Loc.Z = Center.Z;
+		Loc.Z = GroundZAt(Loc); // sit on the floor, not at the player's height
 
-		FActorSpawnParameters Params;
-		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		World->SpawnActor<AVenomObstacle>(Class, Loc, FRotator::ZeroRotator, Params);
+		const FTransform Xform(FRotator(0.f, FMath::FRandRange(0.f, 360.f), 0.f), Loc);
+		AVenomObstacle* Obstacle = World->SpawnActorDeferred<AVenomObstacle>(
+			Class, Xform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (Obstacle)
+		{
+			Obstacle->SetRock(i >= NumObstacles); // first N are pillars, rest boulders
+			UGameplayStatics::FinishSpawningActor(Obstacle, Xform);
+		}
 	}
 }
 
