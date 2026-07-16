@@ -85,7 +85,7 @@ AParasitePawn::AParasitePawn()
 	SymbioteMesh->SetupAttachment(RootComponent);
 	SymbioteMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SymbioteMesh->SetRelativeScale3D(FVector(60.f)); // model imported in metres (~2u)
-	SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+	SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -88.f));
 	SymbioteMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
 	SymbioteMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> SymbioteMeshFinder(TEXT("/Game/baisegongshengti_battle.baisegongshengti_battle"));
@@ -456,7 +456,7 @@ void AParasitePawn::Tick(float DeltaSeconds)
 					}
 					BodyMesh->SetRelativeScale3D(FVector(SXY - Wob, SXY + Wob, SZ + Wob));
 					// Keep the blob's base near the ground as it grows.
-					BodyMesh->SetRelativeLocation(FVector(0.f, 0.f, 50.f * SZ - 40.f));
+					BodyMesh->SetRelativeLocation(FVector(0.f, 0.f, 50.f * SZ - 90.f));
 				}
 
 				// Metaball cluster: lumps blend from a wide flat puddle to a rising,
@@ -474,8 +474,8 @@ void AParasitePawn::Tick(float DeltaSeconds)
 						const float R = FMath::Lerp(62.f * Rf, 16.f * Rf, ColBlend);
 						const float X = FMath::Cos(Ang) * R + 4.f * FMath::Sin(Time * 22.f + i);
 						const float Y = FMath::Sin(Ang) * R + 4.f * FMath::Cos(Time * 20.f + i);
-						const float PudZ = -18.f + 8.f * FMath::Sin(Time * 18.f + i);
-						const float ColZ = FMath::Lerp(-25.f, 135.f, (i + 0.5f) / GooBlobs.Num());
+						const float PudZ = -68.f + 8.f * FMath::Sin(Time * 18.f + i);
+						const float ColZ = FMath::Lerp(-75.f, 100.f, (i + 0.5f) / GooBlobs.Num());
 						const float Z = FMath::Lerp(PudZ, ColZ, ColBlend);
 						Blob->SetRelativeLocation(FVector(X, Y, Z));
 						Blob->SetRelativeScale3D(FVector(0.5f - 0.18f * ColBlend + 0.06f * FMath::Sin(Time * 26.f + i)));
@@ -590,7 +590,7 @@ void AParasitePawn::Tick(float DeltaSeconds)
 		SymbioteMesh->SetRelativeScale3D(FVector(ScaleXY, ScaleXY, ScaleZ));
 
 		const float Bob = (1.f + 3.f * Move01) * (0.5f + 0.5f * S);
-		SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f + Bob));
+		SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -88.f + Bob));
 	}
 	else
 	{
@@ -876,7 +876,7 @@ void AParasitePawn::EndLiquidForm()
 	if (SymbioteMesh)
 	{
 		SymbioteMesh->SetRelativeScale3D(FVector(60.f));
-		SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+		SymbioteMesh->SetRelativeLocation(FVector(0.f, 0.f, -88.f));
 	}
 	SetParasiteVisible(true);
 }
