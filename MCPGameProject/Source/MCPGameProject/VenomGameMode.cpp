@@ -43,7 +43,11 @@ void AVenomGameMode::SpawnObstacles()
 		return;
 	}
 
-	TSubclassOf<AVenomObstacle> Class = ObstacleClass ? ObstacleClass : AVenomObstacle::StaticClass();
+	TSubclassOf<AVenomObstacle> Class = ObstacleClass;
+	if (!Class)
+	{
+		Class = AVenomObstacle::StaticClass();
+	}
 
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 	const FVector Center = Player ? Player->GetActorLocation() : FVector::ZeroVector;
