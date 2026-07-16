@@ -68,8 +68,9 @@ protected:
 	/** Floor height at a point (line trace down); keeps obstacles grounded. */
 	float GroundZAt(const FVector& Loc) const;
 
+	// Keep a clear zone around the spawn so nothing lands on the player.
 	UPROPERTY(EditAnywhere, Category = "Obstacles")
-	float ObstacleMinRadius = 400.f;
+	float ObstacleMinRadius = 550.f;
 
 	UPROPERTY(EditAnywhere, Category = "Obstacles")
 	float ObstacleMaxRadius = 1150.f;

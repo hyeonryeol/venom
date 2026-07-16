@@ -7,6 +7,7 @@
 #include "VenomObstacle.h"
 #include "VenomPlayerController.h"
 #include "VenomHUD.h"
+#include "GameFramework/PlayerStart.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Engine.h"
@@ -65,8 +66,18 @@ void AVenomGameMode::SpawnObstacles()
 		Class = AVenomObstacle::StaticClass();
 	}
 
-	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
-	const FVector Center = Player ? Player->GetActorLocation() : FVector::ZeroVector;
+	// Ring around the actual spawn point — the player may not exist yet at
+	// GameMode BeginPlay, and PlayerStart is NOT at the world origin, so
+	// falling back to (0,0,0) could drop a boulder right onto the spawn.
+	FVector Center = FVector::ZeroVector;
+	if (const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0))
+	{
+		Center = Player->GetActorLocation();
+	}
+	else if (const AActor* Start = UGameplayStatics::GetActorOfClass(this, APlayerStart::StaticClass()))
+	{
+		Center = Start->GetActorLocation();
+	}
 
 	// Golden-angle spread keeps cover from clumping; radius jitter varies depth.
 	const float GoldenAngle = 2.399963f; // ~137.5 deg
